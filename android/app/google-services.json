@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "885370450278",
+    "project_id": "nitbit2-7f960",
+    "storage_bucket": "nitbit2-7f960.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:885370450278:android:1ed7de1eb01a54f5ee58a7",
+        "android_client_info": {
+          "package_name": "com.example.nitbit_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIY9c-WPqnpWy9rviUxiDlUi6FoajoLUY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
