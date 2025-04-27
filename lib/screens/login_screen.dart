@@ -19,17 +19,14 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    // Verificamos si hay una sesión activa y la cerramos
     _checkAndSignOut();
   }
 
   Future<void> _checkAndSignOut() async {
-    try {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser != null) {
-        await FirebaseAuth.instance.signOut();
-      }
-    } catch (e) {
-      print('Error al cerrar sesión previa: $e');
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      await FirebaseAuth.instance.signOut();
     }
   }
 
@@ -48,20 +45,21 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       print('Intentando iniciar sesión con email: ${_emailController.text.trim()}');
       
-      // Primero, intentamos la autenticación
-      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      print('Autenticación exitosa, usuario ID: ${credential.user?.uid}');
+      print('Login exitoso. Usuario: ${userCredential.user?.uid}');
 
       if (!mounted) {
-        print('Widget no está montado después de la autenticación');
+        print('Widget no está montado después del login');
         return;
       }
 
-      // Esperamos un momento para asegurar que la autenticación se complete
+      print('Navegando a la pantalla de inicio...');
+      
+      // Esperamos un momento para asegurar que Firebase Auth esté listo
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (!mounted) {
@@ -69,17 +67,22 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // Verificamos que el usuario esté autenticado
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('Error: Usuario no autenticado después del login');
+      // Verificamos que el usuario siga autenticado
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        print('Error: Usuario no está autenticado después del login');
+        throw Exception('No se pudo completar la autenticación');
       }
 
-      print('Usuario verificado, navegando a home...');
-
-      // Navegamos a home usando pushReplacement para evitar problemas de navegación
-      Navigator.pushReplacementNamed(context, '/home');
-
+      print('Usuario actual: ${currentUser.uid}');
+      
+      // Navegamos a home
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home',
+        (Route<dynamic> route) => false,
+      );
+      
+      print('Navegación completada');
     } on FirebaseAuthException catch (e) {
       print('Error de Firebase Auth: ${e.code} - ${e.message}');
       if (!mounted) return;

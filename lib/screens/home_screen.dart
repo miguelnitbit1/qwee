@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
+import 'profile_screen.dart';
+import 'temporary_chats_screen.dart';
+import 'permanent_chats_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,6 +17,13 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _userData;
   String? _error;
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = [
+    const ProfileScreen(),
+    const TemporaryChatsScreen(),
+    const PermanentChatsScreen(),
+  ];
 
   @override
   void initState() {
@@ -162,85 +172,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nitbit'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              try {
-                await FirebaseAuth.instance.signOut();
-                if (mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/login',
-                    (Route<dynamic> route) => false,
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Error al cerrar sesión. Intente nuevamente.'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.timer_outlined),
+            activeIcon: Icon(Icons.timer),
+            label: 'Temporales',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_outlined),
+            activeIcon: Icon(Icons.chat),
+            label: 'Permanentes',
           ),
         ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '¡Hola, ${_userData?['firstName'] ?? 'Usuario'} ${_userData?['lastName'] ?? ''}!',
-              style: Theme.of(context).textTheme.headlineLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Bienvenido a tu espacio personal',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 40),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tu información',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 16),
-                    _InfoRow(
-                      icon: Icons.email_outlined,
-                      label: 'Correo electrónico',
-                      value: _userData?['email'] ?? user.email ?? 'No disponible',
-                    ),
-                    const SizedBox(height: 8),
-                    _InfoRow(
-                      icon: Icons.phone_outlined,
-                      label: 'Teléfono',
-                      value: _userData?['phone'] ?? 'No disponible',
-                    ),
-                    if (_userData?['createdAt'] != null) ...[
-                      const SizedBox(height: 8),
-                      _InfoRow(
-                        icon: Icons.calendar_today_outlined,
-                        label: 'Fecha de registro',
-                        value: _formatDate(_userData?['createdAt']),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
