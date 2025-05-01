@@ -9,7 +9,8 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'providers/theme_provider.dart';
-
+import 'providers/user_provider.dart';
+import 'middlewares/auth_middleware.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -24,13 +25,11 @@ void main() async {
       appleProvider: AppleProvider.debug,
     );
     
-    // Forzamos cerrar cualquier sesión existente al inicio
-    await FirebaseAuth.instance.signOut();
-    
     runApp(
       MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider(create: (_) => UserProvider()),
         ],
         child: const MyApp(),
       ),
@@ -221,6 +220,8 @@ class MyApp extends StatelessWidget {
           surfaceVariant: const Color(0xFF2C2C2C),
           outline: Colors.grey[700],
           onPrimary: Colors.white,
+          error: const Color(0xFFD32F2F),
+          onError: Colors.white,
         ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
@@ -244,7 +245,7 @@ class MyApp extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.blue[300]!),
+            borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 2),
           ),
           filled: true,
           fillColor: const Color(0xFF1E1E1E),
@@ -252,6 +253,20 @@ class MyApp extends StatelessWidget {
             horizontal: 16,
             vertical: 16,
           ),
+          floatingLabelStyle: const TextStyle(color: Colors.white),
+          labelStyle: TextStyle(color: Colors.grey[400]),
+          prefixIconColor: MaterialStateColor.resolveWith((states) {
+            if (states.contains(MaterialState.focused)) {
+              return Colors.white;
+            }
+            return Colors.grey[400]!;
+          }),
+          suffixIconColor: MaterialStateColor.resolveWith((states) {
+            if (states.contains(MaterialState.focused)) {
+              return Colors.white;
+            }
+            return Colors.grey[400]!;
+          }),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
@@ -307,7 +322,7 @@ class MyApp extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: Colors.grey[700]!,
+              color: Colors.grey[800]!,
               width: 0.5,
             ),
           ),
@@ -344,7 +359,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
-        '/home': (context) => const HomeScreen(),
+        '/home': (context) => const AuthMiddleware(child: HomeScreen()),
       },
     );
   }

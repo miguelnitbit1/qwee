@@ -1,15 +1,68 @@
 import 'package:flutter/material.dart';
 import '../models/chat_user.dart';
+import '../mocks/chat_mocks.dart';
 
-class ChatScreen extends StatelessWidget {
-  final bool isTemporary;
-  final List<ChatUser> users;
+class ChatComponent extends StatefulWidget {
+  const ChatComponent({Key? key}) : super(key: key);
 
-  const ChatScreen({
-    Key? key,
-    required this.isTemporary,
-    required this.users,
-  }) : super(key: key);
+  @override
+  State<ChatComponent> createState() => _ChatComponentState();
+}
+
+class _ChatComponentState extends State<ChatComponent> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final List<ChatUser> permanentUsers = [];
+  final List<ChatUser> temporaryUsers = [];
+  final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = false;
+  bool _isSearchVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _loadChats();
+  }
+
+  Future<void> _loadChats() async {
+    setState(() => _isLoading = true);
+    try {
+      // Convertimos los datos mock a objetos ChatUser
+      final permanent = ChatMocks.permanentUsers
+          .map((userData) => ChatUser.fromMap(userData))
+          .toList();
+      
+      final temporary = ChatMocks.temporaryUsers
+          .map((userData) => ChatUser.fromMap(userData))
+          .toList();
+
+      setState(() {
+        permanentUsers.clear();
+        temporaryUsers.clear();
+        permanentUsers.addAll(permanent);
+        temporaryUsers.addAll(temporary);
+      });
+    } catch (e) {
+      print('Error cargando chats: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar los chats: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _showChatDetails(BuildContext context, Map<String, dynamic> chatData, ChatUser user) {
     final TextEditingController _messageController = TextEditingController();
@@ -53,13 +106,13 @@ class ChatScreen extends StatelessWidget {
                             '${user.firstName} ${user.lastName}',
                             style: theme.textTheme.titleLarge?.copyWith(
                               color: theme.colorScheme.onPrimary,
-                            )
+                            ),
                           ),
                           Text(
                             user.phone ?? 'Sin teléfono',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onPrimary.withOpacity(0.7)
-                            )
+                              color: theme.colorScheme.onPrimary.withOpacity(0.7),
+                            ),
                           ),
                         ],
                       ),
@@ -204,43 +257,87 @@ class ChatScreen extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildChatList(List<ChatUser> users) {
     final theme = Theme.of(context);
     
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isTemporary ? 'Chats Temporales' : 'Chats Permanentes',
-              style: theme.textTheme.titleLarge,
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: users.length,
+      itemBuilder: (context, index) {
+        final user = users[index];
+        return Dismissible(
+          key: Key(user.imageUrl),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.error,
+              borderRadius: BorderRadius.circular(12),
             ),
-            Text(
-              'Tus conversaciones',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 20),
+            child: Icon(
+              Icons.delete_outline,
+              color: theme.colorScheme.onError,
+              size: 26,
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.search,
-              color: theme.iconTheme.color,
-            ),
-            onPressed: () {},
           ),
-        ],
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: users.length,
-        itemBuilder: (context, index) {
-          final user = users[index];
-          return Card(
+          dismissThresholds: const {
+            DismissDirection.endToStart: 0.5,
+          },
+          movementDuration: const Duration(milliseconds: 200),
+          confirmDismiss: (direction) async {
+            return await showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  title: const Text('Confirmar eliminación'),
+                  content: Text('¿Estás seguro de que quieres eliminar el chat con ${user.firstName}?'),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancelar'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: Text(
+                        'Eliminar',
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+          onDismissed: (direction) {
+            setState(() {
+              if (users == permanentUsers) {
+                permanentUsers.removeAt(index);
+              } else {
+                temporaryUsers.removeAt(index);
+              }
+            });
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Chat con ${user.firstName} eliminado'),
+                action: SnackBarAction(
+                  label: 'Deshacer',
+                  onPressed: () {
+                    setState(() {
+                      if (users == permanentUsers) {
+                        permanentUsers.insert(index, user);
+                      } else {
+                        temporaryUsers.insert(index, user);
+                      }
+                    });
+                  },
+                ),
+              ),
+            );
+          },
+          child: Card(
             margin: const EdgeInsets.only(bottom: 16),
             child: ListTile(
               leading: CircleAvatar(
@@ -287,8 +384,83 @@ class ChatScreen extends StatelessWidget {
               ),
               onTap: () => _showChatDetails(context, user.chatData, user),
             ),
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+
+  // Método para filtrar usuarios
+  List<ChatUser> _getFilteredUsers(List<ChatUser> users) {
+    final query = _searchController.text.toLowerCase();
+    if (query.isEmpty) return users;
+    
+    return users.where((user) {
+      final fullName = '${user.firstName} ${user.lastName}'.toLowerCase();
+      return fullName.contains(query);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: _isSearchVisible
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Buscar...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.5)
+                  ),
+                ),
+                style: theme.textTheme.bodyLarge,
+                onChanged: (value) => setState(() {}), // Solo actualizamos el estado
+              )
+            : Text(
+                'Chats',
+                style: theme.textTheme.headlineMedium,
+              ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isSearchVisible ? Icons.close : Icons.search,
+              color: theme.colorScheme.onSurface,
+            ),
+            onPressed: () {
+              setState(() {
+                _isSearchVisible = !_isSearchVisible;
+                if (!_isSearchVisible) {
+                  _searchController.clear();
+                }
+              });
+            },
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Permanentes'),
+            Tab(text: 'Temporales'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildChatList(_getFilteredUsers(permanentUsers)),
+          _buildChatList(_getFilteredUsers(temporaryUsers)),
+        ],
       ),
     );
   }
