@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'profile_screen.dart';
 import 'chats_screen.dart';
+import 'geocercas_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
+    const GeocercasScreen(),
     const ChatsScreen(),
     const ProfileScreen(),
   ];
@@ -179,6 +181,11 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         },
         items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map_outlined),
+            activeIcon: Icon(Icons.map),
+            label: 'Geocercas',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_outlined),
             activeIcon: Icon(Icons.chat),

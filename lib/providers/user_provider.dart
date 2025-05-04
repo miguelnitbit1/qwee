@@ -3,7 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
+import 'dart:async';
 import '../models/notification_message.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class UserProvider with ChangeNotifier {
   User? _firebaseUser;
@@ -11,6 +14,10 @@ class UserProvider with ChangeNotifier {
   bool _isLoading = true;
   String? _error;
   NotificationMessage? _notification;
+  Position? _userPosition;
+  Timer? _locationTimer;
+  bool _hasLocationPermission = false;
+  PermissionStatus? _locationPermissionStatus;
 
   User? get firebaseUser => _firebaseUser;
   Map<String, dynamic>? get userData => _userData;
@@ -18,23 +25,80 @@ class UserProvider with ChangeNotifier {
   String? get error => _error;
   bool get isAuthenticated => _firebaseUser != null;
   NotificationMessage? get notification => _notification;
+  Position? get userPosition => _userPosition;
+  bool get hasLocationPermission => _hasLocationPermission;
+  PermissionStatus? get locationPermissionStatus => _locationPermissionStatus;
 
   UserProvider() {
     _initializeUser();
+    // Registro para el ciclo de vida de la app
+    WidgetsBinding.instance.addObserver(_AppLifecycleObserver(this));
+  }
+
+  // Manejar reanudación de la app - solo actualizar la ubicación si ya tiene permiso
+  void onAppResume() {
+    print('App resumed - Actualizando estado de permisos y ubicación');
+    _updatePermissionStatus();
   }
 
   Future<void> _initializeUser() async {
-    // Escuchar cambios en el estado de autenticación
-    FirebaseAuth.instance.authStateChanges().listen((User? user) async {
-      _firebaseUser = user;
-      if (user != null) {
-        await _loadUserData();
-      } else {
-        _userData = null;
-      }
+    try {
+      // Solo verificar el estado del permiso, no solicitarlo
+      await _updatePermissionStatus();
+      
+      // Escuchar cambios en el estado de autenticación
+      FirebaseAuth.instance.authStateChanges().listen((User? user) async {
+        _firebaseUser = user;
+        if (user != null) {
+          await _loadUserData();
+          // Si ya tiene permiso, obtener ubicación
+          if (_hasLocationPermission) {
+            await _getUserLocation();
+          }
+        } else {
+          _userData = null;
+          _stopLocationUpdates();
+        }
+        _isLoading = false;
+        notifyListeners();
+      });
+    } catch (e) {
+      print('Error al inicializar usuario: $e');
       _isLoading = false;
       notifyListeners();
-    });
+    }
+  }
+
+  // Actualizar el estado del permiso sin solicitar
+  Future<void> _updatePermissionStatus() async {
+    try {
+      final status = await Permission.location.status;
+      _locationPermissionStatus = status;
+      _hasLocationPermission = status.isGranted;
+      
+      print('Estado de permiso actualizado: ${status.name}');
+      
+      // Si tiene permiso, actualizar ubicación
+      if (_hasLocationPermission && _userPosition == null) {
+        await _getUserLocation();
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error al verificar estado de permisos: $e');
+    }
+  }
+
+  void _stopLocationUpdates() {
+    _locationTimer?.cancel();
+    _locationTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _stopLocationUpdates();
+    WidgetsBinding.instance.removeObserver(_AppLifecycleObserver(this));
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -207,4 +271,122 @@ class UserProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> _getUserLocation() async {
+    if (!_hasLocationPermission) return;
+    
+    try {
+      print('Obteniendo ubicación actual...');
+      _userPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
+      );
+      print('Ubicación obtenida: ${_userPosition?.latitude}, ${_userPosition?.longitude}');
+      _error = null;
+      
+      // Iniciar actualizaciones periódicas
+      _startPeriodicLocationUpdates();
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error al obtener la ubicación: $e');
+      _error = 'Error al obtener la ubicación: $e';
+      notifyListeners();
+    }
+  }
+
+  void _startPeriodicLocationUpdates() {
+    if (_locationTimer != null) return;
+    
+    _locationTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      if (_hasLocationPermission) {
+        print('Actualización periódica de ubicación');
+        await _getUserLocation();
+      } else {
+        timer.cancel();
+        _locationTimer = null;
+      }
+    });
+  }
+
+  // Método para forzar una actualización de ubicación (para botón en UI)
+  Future<void> refreshLocation() async {
+    try {
+      if (!_hasLocationPermission) {
+        print('No hay permisos para actualizar ubicación');
+        return;
+      }
+      
+      _isLoading = true;
+      notifyListeners();
+      
+      await _getUserLocation();
+    } catch (e) {
+      _error = 'Error al actualizar ubicación: $e';
+      print(_error);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Para uso desde GeocercasScreen
+  Future<bool> handleLocationPermission() async {
+    try {
+      // Verificar primero el estado actual
+      await _updatePermissionStatus();
+      
+      // Si ya tiene permiso, simplemente actualizar la ubicación
+      if (_hasLocationPermission) {
+        await _getUserLocation();
+        return true;
+      }
+      
+      // No solicitar permiso aquí, dejarlo a la pantalla
+      return false;
+    } catch (e) {
+      print('Error en handleLocationPermission: $e');
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Este método se llamará después de que la pantalla solicite y obtenga el permiso
+  Future<void> onPermissionGranted() async {
+    try {
+      _hasLocationPermission = true;
+      await _getUserLocation();
+      // Iniciar actualizaciones periódicas
+      _startPeriodicLocationUpdates();
+      notifyListeners();
+    } catch (e) {
+      print('Error en onPermissionGranted: $e');
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+}
+
+// Clase para observar el ciclo de vida de la app
+class _AppLifecycleObserver extends WidgetsBindingObserver {
+  final UserProvider provider;
+  
+  _AppLifecycleObserver(this.provider);
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      provider.onAppResume();
+    }
+  }
+  
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is _AppLifecycleObserver && other.provider == provider;
+  }
+  
+  @override
+  int get hashCode => provider.hashCode;
 }
