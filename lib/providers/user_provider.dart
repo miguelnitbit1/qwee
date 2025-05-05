@@ -73,6 +73,7 @@ class UserProvider with ChangeNotifier {
   Future<void> _updatePermissionStatus() async {
     try {
       final status = await Permission.location.status;
+
       _locationPermissionStatus = status;
       _hasLocationPermission = status.isGranted;
       

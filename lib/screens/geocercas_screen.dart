@@ -24,11 +24,9 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
     });
   }
 
-  // Función más eficiente para verificar y solicitar permiso solo si es necesario
   Future<void> _checkAndRequestPermissionIfNeeded() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     
-    // Si ya estamos solicitando el permiso, evitar llamadas duplicadas
     if (_requestingPermission) return;
     
     // Si ya tenemos permiso y posición, no hacer nada
@@ -42,9 +40,9 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
       
       try {
         // Verificar si está permanentemente denegado
-        final isPermanentlyDenied = userProvider.locationPermissionStatus?.isPermanentlyDenied ?? false;
-        
-        if (!isPermanentlyDenied) {
+        final hasLocationPermission = userProvider.hasLocationPermission;
+        print('asdasd: ${hasLocationPermission}');
+        if (!hasLocationPermission) {
           print('Solicitando permiso desde la pantalla GeocercasScreen');
           final status = await Permission.location.request();
           
@@ -78,7 +76,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 200,
+            expandedHeight: 135,
             pinned: true,
             elevation: 0,
             scrolledUnderElevation: 0,
