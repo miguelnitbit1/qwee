@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import '../providers/theme_provider.dart';
-
+import '../providers/user_provider.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -16,17 +16,19 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-  Map<String, dynamic>? _userData;
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  String? _profileImageUrl;
+  
+  bool _isLoading = false;
   File? _imageFile;
+
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    _firstNameController.text = userProvider.userData?['firstName'] ?? '';
+    _lastNameController.text = userProvider.userData?['lastName'] ?? '';
   }
 
   @override
@@ -34,37 +36,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadUserData() async {
-    setState(() => _isLoading = true);
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        
-        if (doc.exists) {
-          setState(() {
-            _userData = doc.data();
-            _firstNameController.text = _userData?['firstName'] ?? '';
-            _lastNameController.text = _userData?['lastName'] ?? '';
-            _profileImageUrl = _userData?['profileImageUrl'];
-          });
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al cargar datos: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
   }
 
   Future<void> _pickImage() async {
@@ -147,298 +118,288 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _updateProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        String? newImageUrl = _profileImageUrl;
-        if (_imageFile != null) {
-          newImageUrl = await _uploadImage();
-        }
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
-          'firstName': _firstNameController.text.trim(),
-          'lastName': _lastNameController.text.trim(),
-          if (newImageUrl != null) 'profileImageUrl': newImageUrl,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Perfil actualizado correctamente'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-            ),
-          );
-          _loadUserData();
-        }
-      }
+      await userProvider.updateProfile(
+        firstName: _firstNameController.text,
+        lastName: _lastNameController.text,
+        imageFile: _imageFile,
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al actualizar perfil: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
+      // El provider ya maneja la notificación de error
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        // Mostrar notificación si existe
+        if (userProvider.notification != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(userProvider.notification!.message),
+                backgroundColor: userProvider.notification!.isError
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.primary,
+              ),
+            );
+          });
+        }
 
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final theme = Theme.of(context);
+        if (userProvider.isLoading) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      theme.colorScheme.primary,
-                      theme.colorScheme.primary.withOpacity(0.8),
-                    ],
-                  ),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 40),
-                      Stack(
+        final themeProvider = Provider.of<ThemeProvider>(context);
+        final theme = Theme.of(context);
+
+        return Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 200,
+                pinned: true,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                backgroundColor: Colors.transparent,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          theme.colorScheme.primary,
+                          theme.colorScheme.primary.withOpacity(0.8),
+                        ],
+                      ),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Hero(
-                            tag: 'profile_image',
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.2),
-                                  width: 2,
-                                ),
-                              ),
-                              child: CircleAvatar(
-                                radius: 50,
-                                backgroundImage: _imageFile != null
-                                    ? FileImage(_imageFile!)
-                                    : (_profileImageUrl != null
-                                        ? NetworkImage(_profileImageUrl!)
-                                        : null) as ImageProvider?,
-                                backgroundColor: theme.colorScheme.secondary,
-                                child: _imageFile == null && _profileImageUrl == null
-                                    ? Text(
-                                        _firstNameController.text.isNotEmpty
-                                            ? _firstNameController.text[0].toUpperCase()
-                                            : '?',
-                                        style: theme.textTheme.headlineLarge?.copyWith(
-                                          color: theme.colorScheme.onSecondary,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.secondary,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: theme.shadowColor.withOpacity(0.2),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
+                          const SizedBox(height: 40),
+                          Stack(
+                            children: [
+                              Hero(
+                                tag: 'profile_image',
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: theme.colorScheme.onSurface.withOpacity(0.2),
+                                      width: 2,
+                                    ),
                                   ),
-                                ],
-                              ),
-                              child: IconButton(
-                                icon: Icon(
-                                  Icons.camera_alt,
-                                  color: theme.colorScheme.onSecondary,
+                                  child: CircleAvatar(
+                                    radius: 50,
+                                    backgroundImage: _imageFile != null
+                                        ? FileImage(_imageFile!)
+                                        : userProvider.userData?['profileImageUrl'] != null
+                                            ? NetworkImage(userProvider.userData?['profileImageUrl']!)
+                                            : null as ImageProvider?,
+                                    backgroundColor: theme.colorScheme.secondary,
+                                    child: _imageFile == null && userProvider.userData?['profileImageUrl'] == null
+                                        ? Text(
+                                            userProvider.userData?['firstName']?.isNotEmpty == true
+                                                ? userProvider.userData?['firstName']?[0].toUpperCase()
+                                                : '?',
+                                            style: theme.textTheme.headlineLarge?.copyWith(
+                                              color: theme.colorScheme.onSecondary,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
                                 ),
-                                onPressed: _pickImage,
                               ),
-                            ),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondary,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: theme.shadowColor.withOpacity(0.2),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: IconButton(
+                                    icon: Icon(
+                                      Icons.camera_alt,
+                                      color: theme.colorScheme.onSecondary,
+                                    ),
+                                    onPressed: _pickImage,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Información Personal',
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _firstNameController,
-                      decoration: InputDecoration(
-                        labelText: 'Nombre',
-                        prefixIcon: Icon(
-                          Icons.person_outline,
-                          color: theme.iconTheme.color,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Información Personal',
+                          style: theme.textTheme.titleLarge,
                         ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Por favor ingrese su nombre';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _lastNameController,
-                      decoration: InputDecoration(
-                        labelText: 'Apellido',
-                        prefixIcon: Icon(
-                          Icons.person_outline,
-                          color: theme.iconTheme.color,
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Por favor ingrese su apellido';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                    Text(
-                      'Información de Contacto',
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 24),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            _buildInfoRow(
-                              Icons.email_outlined,
-                              'Correo electrónico',
-                              FirebaseAuth.instance.currentUser?.email ?? 'No disponible',
+                        const SizedBox(height: 24),
+                        TextFormField(
+                          controller: _firstNameController,
+                          decoration: InputDecoration(
+                            labelText: 'Nombre',
+                            prefixIcon: Icon(
+                              Icons.person_outline,
+                              color: theme.iconTheme.color,
                             ),
-                            const Divider(),
-                            _buildInfoRow(
-                              Icons.phone_outlined,
-                              'Teléfono',
-                              _userData?['phone'] ?? 'No disponible',
-                            ),
-                          ],
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Por favor ingrese su nombre';
+                            }
+                            return null;
+                          },
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Text(
-                      'Preferencias',
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 24),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            ListTile(
-                              leading: Icon(
-                                themeProvider.isDarkMode
-                                    ? Icons.dark_mode
-                                    : Icons.light_mode,
-                                color: theme.colorScheme.primary,
-                              ),
-                              title: Text(
-                                'Modo Oscuro',
-                                style: theme.textTheme.bodyLarge,
-                              ),
-                              subtitle: Text(
-                                themeProvider.isDarkMode
-                                    ? 'Cambiar a modo claro'
-                                    : 'Cambiar a modo oscuro',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                              trailing: Switch(
-                                value: themeProvider.isDarkMode,
-                                onChanged: (bool value) {
-                                  themeProvider.setThemeMode(
-                                    value ? ThemeMode.dark : ThemeMode.light,
-                                  );
-                                },
-                              ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _lastNameController,
+                          decoration: InputDecoration(
+                            labelText: 'Apellido',
+                            prefixIcon: Icon(
+                              Icons.person_outline,
+                              color: theme.iconTheme.color,
                             ),
-                          ],
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Por favor ingrese su apellido';
+                            }
+                            return null;
+                          },
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _updateProfile,
-                        child: _isLoading
-                            ? SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    theme.colorScheme.onPrimary,
+                        const SizedBox(height: 32),
+                        Text(
+                          'Información de Contacto',
+                          style: theme.textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 24),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                _buildInfoRow(
+                                  Icons.email_outlined,
+                                  'Correo electrónico',
+                                  userProvider.userData?['email'] ?? 'No disponible',
+                                ),
+                                const Divider(),
+                                _buildInfoRow(
+                                  Icons.phone_outlined,
+                                  'Teléfono',
+                                  userProvider.userData?['phone'] ?? 'No disponible',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        Text(
+                          'Preferencias',
+                          style: theme.textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 24),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  leading: Icon(
+                                    themeProvider.isDarkMode
+                                        ? Icons.dark_mode
+                                        : Icons.light_mode,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  title: Text(
+                                    'Modo Oscuro',
+                                    style: theme.textTheme.bodyLarge,
+                                  ),
+                                  subtitle: Text(
+                                    themeProvider.isDarkMode
+                                        ? 'Cambiar a modo claro'
+                                        : 'Cambiar a modo oscuro',
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                  trailing: Switch(
+                                    value: themeProvider.isDarkMode,
+                                    onChanged: (bool value) {
+                                      themeProvider.setThemeMode(
+                                        value ? ThemeMode.dark : ThemeMode.light,
+                                      );
+                                    },
                                   ),
                                 ),
-                              )
-                            : const Text(
-                                'Actualizar Perfil',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                      ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _updateProfile,
+                            child: const Text('Actualizar perfil'),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.colorScheme.error,
+                            ),
+                            onPressed: () async {
+                              await FirebaseAuth.instance.signOut();
+                              Navigator.pushReplacementNamed(context, '/login');
+                            },
+                            child: const Text('Cerrar sesión'),
+                          ),
+                        )
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
     final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
