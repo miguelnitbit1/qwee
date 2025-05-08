@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/geocerca_model.dart';
 import '../mocks/geocercas_mocks.dart';
 import '../providers/user_provider.dart';
+import '../services/map_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class GeocercasScreen extends StatefulWidget {
@@ -310,7 +311,72 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
                 color: theme.colorScheme.primary,
               ),
               onTap: () {
-                // Aquí puedes agregar la lógica para manejar el tap en la geocerca
+                showModalBottomSheet(
+                  context: context,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (context) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          margin: const EdgeInsets.only(bottom: 20),
+                        ),
+                        Text(
+                          geocerca.name,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        ListTile(
+                          leading: Icon(Icons.map, color: theme.colorScheme.primary),
+                          title: const Text('Abrir en mapa'),
+                          onTap: () async {
+                            Navigator.pop(context); // Cerrar el modal
+                            try {
+                              await MapService.openMapWithGeocerca(
+                                geocerca,
+                                currentPosition: userProvider.userPosition,
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('No se pudo abrir el mapa: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                        ListTile(
+                          leading: Icon(Icons.info_outline, color: theme.colorScheme.primary),
+                          title: const Text('Ver detalles'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            // Aquí podrías navegar a una pantalla de detalles de la geocerca
+                          },
+                        ),
+                        ListTile(
+                          leading: Icon(Icons.share, color: theme.colorScheme.primary),
+                          title: const Text('Compartir ubicación'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            // Implementar funcionalidad para compartir
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               },
             ),
           );

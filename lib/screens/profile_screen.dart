@@ -160,233 +160,243 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final theme = Theme.of(context);
 
         return Scaffold(
-          body: CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 200,
-                pinned: true,
-                elevation: 0,
-                scrolledUnderElevation: 0,
-                backgroundColor: Colors.transparent,
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          theme.colorScheme.primary,
-                          theme.colorScheme.primary.withOpacity(0.8),
-                        ],
-                      ),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 40),
-                          Stack(
+          body: Stack(
+            children: [
+              CustomScrollView(
+                slivers: [
+                  SliverAppBar(
+                    expandedHeight: 200,
+                    pinned: true,
+                    elevation: 0,
+                    scrolledUnderElevation: 0,
+                    backgroundColor: Colors.transparent,
+                    flexibleSpace: FlexibleSpaceBar(
+                      background: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              theme.colorScheme.primary,
+                              theme.colorScheme.primary.withOpacity(0.8),
+                            ],
+                          ),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Hero(
-                                tag: 'profile_image',
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: theme.colorScheme.onSurface.withOpacity(0.2),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 50,
-                                    backgroundImage: _imageFile != null
-                                        ? FileImage(_imageFile!)
-                                        : userProvider.userData?['profileImageUrl'] != null
-                                            ? NetworkImage(userProvider.userData?['profileImageUrl']!)
-                                            : null as ImageProvider?,
-                                    backgroundColor: theme.colorScheme.secondary,
-                                    child: _imageFile == null && userProvider.userData?['profileImageUrl'] == null
-                                        ? Text(
-                                            userProvider.userData?['firstName']?.isNotEmpty == true
-                                                ? userProvider.userData?['firstName']?[0].toUpperCase()
-                                                : '?',
-                                            style: theme.textTheme.headlineLarge?.copyWith(
-                                              color: theme.colorScheme.onSecondary,
-                                            ),
-                                          )
-                                        : null,
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.secondary,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: theme.shadowColor.withOpacity(0.2),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
+                              const SizedBox(height: 40),
+                              Stack(
+                                children: [
+                                  Hero(
+                                    tag: 'profile_image',
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: theme.colorScheme.onSurface.withOpacity(0.2),
+                                          width: 2,
+                                        ),
                                       ),
-                                    ],
-                                  ),
-                                  child: IconButton(
-                                    icon: Icon(
-                                      Icons.camera_alt,
-                                      color: theme.colorScheme.onSecondary,
+                                      child: CircleAvatar(
+                                        radius: 50,
+                                        backgroundImage: _imageFile != null
+                                            ? FileImage(_imageFile!)
+                                            : userProvider.userData?['profileImageUrl'] != null
+                                                ? NetworkImage(userProvider.userData?['profileImageUrl']!)
+                                                : null as ImageProvider?,
+                                        backgroundColor: theme.colorScheme.secondary,
+                                        child: _imageFile == null && userProvider.userData?['profileImageUrl'] == null
+                                            ? Text(
+                                                userProvider.userData?['firstName']?.isNotEmpty == true
+                                                    ? userProvider.userData?['firstName']?[0].toUpperCase()
+                                                    : '?',
+                                                style: theme.textTheme.headlineLarge?.copyWith(
+                                                  color: theme.colorScheme.onSecondary,
+                                                ),
+                                              )
+                                            : null,
+                                      ),
                                     ),
-                                    onPressed: _pickImage,
                                   ),
-                                ),
+                                  Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.secondary,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: theme.shadowColor.withOpacity(0.2),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: IconButton(
+                                        icon: Icon(
+                                          Icons.camera_alt,
+                                          color: theme.colorScheme.onSecondary,
+                                        ),
+                                        onPressed: _pickImage,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Información Personal',
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 24),
-                        TextFormField(
-                          controller: _firstNameController,
-                          decoration: InputDecoration(
-                            labelText: 'Nombre',
-                            prefixIcon: Icon(
-                              Icons.person_outline,
-                              color: theme.iconTheme.color,
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Información Personal',
+                              style: theme.textTheme.titleLarge,
                             ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Por favor ingrese su nombre';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _lastNameController,
-                          decoration: InputDecoration(
-                            labelText: 'Apellido',
-                            prefixIcon: Icon(
-                              Icons.person_outline,
-                              color: theme.iconTheme.color,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Por favor ingrese su apellido';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          'Información de Contacto',
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 24),
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                _buildInfoRow(
-                                  Icons.email_outlined,
-                                  'Correo electrónico',
-                                  userProvider.userData?['email'] ?? 'No disponible',
+                            const SizedBox(height: 24),
+                            TextFormField(
+                              controller: _firstNameController,
+                              decoration: InputDecoration(
+                                labelText: 'Nombre',
+                                prefixIcon: Icon(
+                                  Icons.person_outline,
+                                  color: theme.iconTheme.color,
                                 ),
-                                const Divider(),
-                                _buildInfoRow(
-                                  Icons.phone_outlined,
-                                  'Teléfono',
-                                  userProvider.userData?['phone'] ?? 'No disponible',
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Por favor ingrese su nombre';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _lastNameController,
+                              decoration: InputDecoration(
+                                labelText: 'Apellido',
+                                prefixIcon: Icon(
+                                  Icons.person_outline,
+                                  color: theme.iconTheme.color,
                                 ),
-                              ],
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Por favor ingrese su apellido';
+                                }
+                                return null;
+                              },
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          'Preferencias',
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 24),
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                ListTile(
-                                  leading: Icon(
-                                    themeProvider.isDarkMode
-                                        ? Icons.dark_mode
-                                        : Icons.light_mode,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                  title: Text(
-                                    'Modo Oscuro',
-                                    style: theme.textTheme.bodyLarge,
-                                  ),
-                                  subtitle: Text(
-                                    themeProvider.isDarkMode
-                                        ? 'Cambiar a modo claro'
-                                        : 'Cambiar a modo oscuro',
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                  trailing: Switch(
-                                    value: themeProvider.isDarkMode,
-                                    onChanged: (bool value) {
-                                      themeProvider.setThemeMode(
-                                        value ? ThemeMode.dark : ThemeMode.light,
-                                      );
-                                    },
-                                  ),
+                            const SizedBox(height: 32),
+                            Text(
+                              'Información de Contacto',
+                              style: theme.textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 24),
+                            Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    _buildInfoRow(
+                                      Icons.email_outlined,
+                                      'Correo electrónico',
+                                      userProvider.userData?['email'] ?? 'No disponible',
+                                    ),
+                                    const Divider(),
+                                    _buildInfoRow(
+                                      Icons.phone_outlined,
+                                      'Teléfono',
+                                      userProvider.userData?['phone'] ?? 'No disponible',
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _updateProfile,
-                            child: const Text('Actualizar perfil'),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.colorScheme.error,
+                            const SizedBox(height: 32),
+                            Text(
+                              'Preferencias',
+                              style: theme.textTheme.titleLarge,
                             ),
-                            onPressed: () async {
-                              await FirebaseAuth.instance.signOut();
-                              Navigator.pushReplacementNamed(context, '/login');
-                            },
-                            child: const Text('Cerrar sesión'),
-                          ),
-                        )
-                      ],
+                            const SizedBox(height: 24),
+                            Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    ListTile(
+                                      leading: Icon(
+                                        themeProvider.isDarkMode
+                                            ? Icons.dark_mode
+                                            : Icons.light_mode,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                      title: Text(
+                                        'Modo Oscuro',
+                                        style: theme.textTheme.bodyLarge,
+                                      ),
+                                      subtitle: Text(
+                                        themeProvider.isDarkMode
+                                            ? 'Cambiar a modo claro'
+                                            : 'Cambiar a modo oscuro',
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                      trailing: Switch(
+                                        value: themeProvider.isDarkMode,
+                                        onChanged: (bool value) {
+                                          themeProvider.setThemeMode(
+                                            value ? ThemeMode.dark : ThemeMode.light,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.error,
+                                ),
+                                onPressed: () async {
+                                  await FirebaseAuth.instance.signOut();
+                                  Navigator.pushReplacementNamed(context, '/login');
+                                },
+                                child: const Text('Cerrar sesión'),
+                              ),
+                            ),
+                            const SizedBox(height: 60), // Espacio para el botón fijo
+                          ],
+                        ),
+                      ),
                     ),
+                  ),
+                ],
+              ),
+              // Botón fijo en la parte inferior de la pantalla
+              Positioned(
+                bottom: 16, // Ajusta este valor según necesites
+                left: 24,
+                right: 24,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _updateProfile,
+                    child: const Text('Actualizar perfil'),
                   ),
                 ),
               ),
