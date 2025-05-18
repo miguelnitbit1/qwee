@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
@@ -115,6 +117,102 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (Platform.isIOS) {
+      return _buildCupertinoLayout();
+    } else {
+      return _buildMaterialLayout();
+    }
+  }
+
+  Widget _buildCupertinoLayout() {
+    if (_isLoading) {
+      return const CupertinoPageScaffold(
+        child: Center(
+          child: CupertinoActivityIndicator(),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return CupertinoPageScaffold(
+        navigationBar: const CupertinoNavigationBar(
+          middle: Text('Error'),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                CupertinoIcons.exclamationmark_triangle,
+                color: CupertinoColors.systemRed,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Error',
+                style: CupertinoTheme.of(context).textTheme.navTitleTextStyle,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: CupertinoColors.systemRed),
+              ),
+              const SizedBox(height: 16),
+              CupertinoButton.filled(
+                onPressed: () {
+                  setState(() {
+                    _isLoading = true;
+                    _error = null;
+                  });
+                  _initializeUserData();
+                },
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const CupertinoPageScaffold(
+        child: Center(
+          child: Text('No hay usuario autenticado'),
+        ),
+      );
+    }
+
+    return CupertinoTabScaffold(
+      tabBar: CupertinoTabBar(
+        activeColor: CupertinoTheme.of(context).primaryColor,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.map),
+            label: 'Geocercas',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.chat_bubble),
+            label: 'Chats',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.person),
+            label: 'Perfil',
+          ),
+        ],
+      ),
+      tabBuilder: (context, index) {
+        return CupertinoTabView(
+          builder: (context) {
+            return _screens[index];
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMaterialLayout() {
     if (_isLoading) {
       return const Scaffold(
         body: Center(
