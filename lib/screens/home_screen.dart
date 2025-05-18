@@ -189,15 +189,15 @@ class _HomeScreenState extends State<HomeScreen> {
         activeColor: CupertinoTheme.of(context).primaryColor,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.map),
+            icon: Icon(CupertinoIcons.map, size: 24),
             label: 'Geocercas',
           ),
           BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.chat_bubble),
+            icon: Icon(CupertinoIcons.chat_bubble, size: 24),
             label: 'Chats',
           ),
           BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.person),
+            icon: Icon(CupertinoIcons.person, size: 24),
             label: 'Perfil',
           ),
         ],

@@ -7,6 +7,7 @@ import 'dart:async';
 import '../models/notification_message.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/foundation.dart';
 
 class UserProvider with ChangeNotifier {
   User? _firebaseUser;
@@ -18,6 +19,7 @@ class UserProvider with ChangeNotifier {
   Timer? _locationTimer;
   bool _hasLocationPermission = false;
   PermissionStatus? _locationPermissionStatus;
+  bool _isRequestingPermission = false;
 
   User? get firebaseUser => _firebaseUser;
   Map<String, dynamic>? get userData => _userData;
@@ -28,6 +30,7 @@ class UserProvider with ChangeNotifier {
   Position? get userPosition => _userPosition;
   bool get hasLocationPermission => _hasLocationPermission;
   PermissionStatus? get locationPermissionStatus => _locationPermissionStatus;
+  bool get isRequestingPermission => _isRequestingPermission;
 
   UserProvider() {
     _initializeUser();
@@ -69,15 +72,23 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Actualizar el estado del permiso sin solicitar
+  // Método centralizado para verificar el estado del permiso
   Future<void> _updatePermissionStatus() async {
     try {
-      final status = await Permission.location.status;
+      if (Platform.isIOS) {
+        // En iOS, usar Geolocator directamente
+        LocationPermission geoPermission = await Geolocator.checkPermission();
+        print('iOS - Geolocator permission status: $geoPermission');
 
-      _locationPermissionStatus = status;
-      _hasLocationPermission = status.isGranted;
-      
-      print('Estado de permiso actualizado: ${status.name}');
+        _hasLocationPermission = geoPermission == LocationPermission.whileInUse || 
+                              geoPermission == LocationPermission.always;
+      } else {
+        // En Android, mantener el comportamiento original con Permission Handler
+        final status = await Permission.location.status;
+        _locationPermissionStatus = status;
+        _hasLocationPermission = status.isGranted;
+        print('Android - Permission status: ${status.name}');
+      }
       
       // Si tiene permiso, actualizar ubicación
       if (_hasLocationPermission && _userPosition == null) {
@@ -273,14 +284,91 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _getUserLocation() async {
-    if (!_hasLocationPermission) return;
+  // Método centralizado para solicitar permisos
+  Future<bool> requestLocationPermission() async {
+    if (_isRequestingPermission) return false;
+    
+    _isRequestingPermission = true;
+    notifyListeners();
     
     try {
+      bool permissionGranted = false;
+      
+      if (Platform.isIOS) {
+        print('iOS - Solicitando permiso con Geolocator...');
+        LocationPermission permission = await Geolocator.checkPermission();
+        
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+          print('iOS - Resultado de solicitud con Geolocator: $permission');
+          
+          permissionGranted = permission == LocationPermission.whileInUse || 
+                            permission == LocationPermission.always;
+        } else {
+          // Si ya tenía permiso
+          permissionGranted = permission == LocationPermission.whileInUse || 
+                            permission == LocationPermission.always;
+        }
+      } else {
+        // En Android, mantener el comportamiento original
+        print('Android - Solicitando permiso con Permission Handler...');
+        final status = await Permission.location.request();
+        print('Android - Resultado de solicitud: ${status.name}');
+        
+        permissionGranted = status.isGranted;
+        _locationPermissionStatus = status;
+      }
+      
+      if (permissionGranted) {
+        await onPermissionGranted();
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      print('Error al solicitar permiso: $e');
+      return false;
+    } finally {
+      _isRequestingPermission = false;
+      notifyListeners();
+    }
+  }
+
+  // Método para abrir configuración basado en plataforma
+  Future<void> openLocationSettings() async {
+    try {
+      if (Platform.isIOS) {
+        await Geolocator.openAppSettings();
+      } else {
+        await openAppSettings();
+      }
+    } catch (e) {
+      print('Error al abrir configuración: $e');
+    }
+  }
+
+  // Método para verificar si el permiso está permanentemente denegado
+  bool isPermanentlyDenied() {
+    if (Platform.isIOS) {
+      // En iOS, usar Geolocator
+      return _hasLocationPermission == false && _locationPermissionStatus?.isPermanentlyDenied == true;
+    } else {
+      // En Android, usar Permission Handler
+      return _locationPermissionStatus?.isPermanentlyDenied == true;
+    }
+  }
+
+  Future<void> _getUserLocation() async {
+    try {
+      if (!_hasLocationPermission) {
+        print('No hay permisos para obtener ubicación');
+        return;
+      }
+      
       print('Obteniendo ubicación actual...');
       _userPosition = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 5),
+        timeLimit: const Duration(seconds: 10),
       );
       print('Ubicación obtenida: ${_userPosition?.latitude}, ${_userPosition?.longitude}');
       _error = null;
@@ -292,6 +380,17 @@ class UserProvider with ChangeNotifier {
     } catch (e) {
       print('Error al obtener la ubicación: $e');
       _error = 'Error al obtener la ubicación: $e';
+      
+      // Manejo específico de errores de ubicación
+      if (e is TimeoutException) {
+        print('Timeout al obtener ubicación, el servicio puede estar desactivado');
+      }
+      
+      if (e.toString().contains('LOCATION_SERVICES_DISABLED')) {
+        print('Los servicios de ubicación están desactivados');
+        _error = 'Los servicios de ubicación están desactivados en tu dispositivo. Por favor actívalos en la configuración.';
+      }
+      
       notifyListeners();
     }
   }
@@ -331,35 +430,23 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Para uso desde GeocercasScreen
-  Future<bool> handleLocationPermission() async {
-    try {
-      // Verificar primero el estado actual
-      await _updatePermissionStatus();
-      
-      // Si ya tiene permiso, simplemente actualizar la ubicación
-      if (_hasLocationPermission) {
-        await _getUserLocation();
-        return true;
-      }
-      
-      // No solicitar permiso aquí, dejarlo a la pantalla
-      return false;
-    } catch (e) {
-      print('Error en handleLocationPermission: $e');
-      _error = e.toString();
-      notifyListeners();
-      return false;
-    }
-  }
-
-  // Este método se llamará después de que la pantalla solicite y obtenga el permiso
+  // Este método se llamará después de que se conceda el permiso
   Future<void> onPermissionGranted() async {
     try {
+      // Actualizar estado de permisos
       _hasLocationPermission = true;
+      if (Platform.isAndroid) {
+        _locationPermissionStatus = PermissionStatus.granted;
+      }
+      
+      print('Permiso concedido, obteniendo ubicación del usuario');
+      
+      // Actualizar ubicación
       await _getUserLocation();
+      
       // Iniciar actualizaciones periódicas
       _startPeriodicLocationUpdates();
+      
       notifyListeners();
     } catch (e) {
       print('Error en onPermissionGranted: $e');

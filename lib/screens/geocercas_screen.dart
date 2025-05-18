@@ -6,7 +6,6 @@ import '../models/geocerca_model.dart';
 import '../mocks/geocercas_mocks.dart';
 import '../providers/user_provider.dart';
 import '../services/map_service.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../widgets/platform_button.dart';
 import '../widgets/platform_alert.dart';
 
@@ -18,13 +17,12 @@ class GeocercasScreen extends StatefulWidget {
 }
 
 class _GeocercasScreenState extends State<GeocercasScreen> {
-  bool _requestingPermission = false;
-
   @override
   void initState() {
     super.initState();
     // Verificar si necesitamos solicitar permiso al entrar a la pantalla
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('GeocercasScreen: Iniciando verificación de permisos en postFrameCallback');
       _checkAndRequestPermissionIfNeeded();
     });
   }
@@ -32,36 +30,13 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
   Future<void> _checkAndRequestPermissionIfNeeded() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     
-    if (_requestingPermission) return;
-    
     // Si ya tenemos permiso y posición, no hacer nada
     if (userProvider.hasLocationPermission && userProvider.userPosition != null) {
       return;
     }
     
-    // Si no tenemos el permiso, solicitarlo
-    if (!userProvider.hasLocationPermission) {
-      setState(() => _requestingPermission = true);
-      
-      try {
-        // Verificar si está permanentemente denegado
-        final hasLocationPermission = userProvider.hasLocationPermission;
-        print('Verificando permisos: ${hasLocationPermission}');
-        if (!hasLocationPermission) {
-          print('Solicitando permiso desde la pantalla GeocercasScreen');
-          final status = await Permission.location.request();
-          
-          if (status.isGranted) {
-            print('Permiso concedido, notificando al provider');
-            await userProvider.onPermissionGranted();
-          }
-        }
-      } catch (e) {
-        print('Error al solicitar permiso: $e');
-      } finally {
-        setState(() => _requestingPermission = false);
-      }
-    }
+    // Solicitar permiso usando el método centralizado
+    await userProvider.requestLocationPermission();
   }
 
   @override
@@ -88,7 +63,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
   
   Widget _buildCupertinoLayout(UserProvider userProvider, List<Geocerca> geocercas) {
     final hasPosition = userProvider.userPosition != null;
-    final isPermanentlyDenied = userProvider.locationPermissionStatus?.isPermanentlyDenied ?? false;
+    final isPermanentlyDenied = userProvider.isPermanentlyDenied();
     
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
@@ -250,24 +225,24 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
             ),
             const SizedBox(height: 24),
             PlatformButton(
-              text: _requestingPermission
+              text: userProvider.isRequestingPermission
                   ? 'Solicitando...'
                   : isPermanentlyDenied 
                       ? 'Abrir configuración' 
                       : 'Activar ubicación',
               isPrimary: true,
-              icon: _requestingPermission
+              icon: userProvider.isRequestingPermission
                   ? (isIOS ? CupertinoIcons.hourglass : Icons.hourglass_empty)
                   : isPermanentlyDenied 
                       ? (isIOS ? CupertinoIcons.settings : Icons.settings)
                       : (isIOS ? CupertinoIcons.location : Icons.location_on),
-              onPressed: _requestingPermission
+              onPressed: userProvider.isRequestingPermission
                   ? null
-                  : () {
+                  : () async {
                       if (isPermanentlyDenied) {
-                        openAppSettings();
+                        await userProvider.openLocationSettings();
                       } else {
-                        _checkAndRequestPermissionIfNeeded();
+                        await userProvider.requestLocationPermission();
                       }
                     },
             ),
@@ -527,16 +502,16 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
   Widget _buildLocationStatusIndicator(UserProvider userProvider, ThemeData theme) {
     final hasPermission = userProvider.hasLocationPermission;
     final hasPosition = userProvider.userPosition != null;
-    final isPermanentlyDenied = userProvider.locationPermissionStatus?.isPermanentlyDenied ?? false;
+    final isPermanentlyDenied = userProvider.isPermanentlyDenied();
     
     return InkWell(
-      onTap: _requestingPermission 
+      onTap: userProvider.isRequestingPermission 
           ? null 
-          : () {
+          : () async {
               if (isPermanentlyDenied) {
-                openAppSettings();
+                await userProvider.openLocationSettings();
               } else if (!hasPermission) {
-                _checkAndRequestPermissionIfNeeded();
+                await userProvider.requestLocationPermission();
               } else if (!hasPosition) {
                 userProvider.refreshLocation();
               }
@@ -546,7 +521,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
         decoration: BoxDecoration(
           color: hasPosition
               ? Colors.green.withOpacity(0.3)
-              : _requestingPermission
+              : userProvider.isRequestingPermission
                   ? Colors.orange.withOpacity(0.3)
                   : Colors.red.withOpacity(0.3),
           borderRadius: BorderRadius.circular(20),
@@ -555,7 +530,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              _requestingPermission
+              userProvider.isRequestingPermission
                   ? Icons.access_time
                   : hasPosition 
                       ? Icons.check_circle 
@@ -567,7 +542,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
             ),
             const SizedBox(width: 8),
             Text(
-              _requestingPermission
+              userProvider.isRequestingPermission
                   ? 'Solicitando permiso...'
                   : hasPosition
                       ? 'Ubicación activa'
@@ -587,7 +562,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
 
   Widget _buildContentSection(UserProvider userProvider, ThemeData theme, List<Geocerca> geocercas) {
     final hasPosition = userProvider.userPosition != null;
-    final isPermanentlyDenied = userProvider.locationPermissionStatus?.isPermanentlyDenied ?? false;
+    final isPermanentlyDenied = userProvider.isPermanentlyDenied();
     
     if (!hasPosition) {
       return SliverToBoxAdapter(
@@ -620,24 +595,24 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
                 ),
                 const SizedBox(height: 24),
                 PlatformButton(
-                  text: _requestingPermission
+                  text: userProvider.isRequestingPermission
                       ? 'Solicitando...'
                       : isPermanentlyDenied 
                           ? 'Abrir configuración' 
                           : 'Activar ubicación',
                   isPrimary: true,
-                  icon: _requestingPermission
+                  icon: userProvider.isRequestingPermission
                       ? Icons.hourglass_empty
                       : isPermanentlyDenied 
                           ? Icons.settings 
                           : Icons.location_on,
-                  onPressed: _requestingPermission
+                  onPressed: userProvider.isRequestingPermission
                       ? null
-                      : () {
+                      : () async {
                           if (isPermanentlyDenied) {
-                            openAppSettings();
+                            await userProvider.openLocationSettings();
                           } else {
-                            _checkAndRequestPermissionIfNeeded();
+                            await userProvider.requestLocationPermission();
                           }
                         },
                 ),
