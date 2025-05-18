@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'dart:io' show Platform;
 import '../widgets/chat.dart';
 
 class ChatsScreen extends StatelessWidget {
@@ -6,6 +8,18 @@ class ChatsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ChatComponent();
+    return Platform.isIOS
+        ? CupertinoPageScaffold(
+            navigationBar: const CupertinoNavigationBar(
+              middle: Text('Chats'),
+              backgroundColor: CupertinoColors.systemBlue,
+            ),
+            child: const SafeArea(
+              child: ChatComponent(),
+            ),
+          )
+        : const Scaffold(
+            body: ChatComponent(),
+          );
   }
 }

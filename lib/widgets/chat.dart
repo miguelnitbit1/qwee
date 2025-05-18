@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'dart:io' show Platform;
 import '../models/chat_user.dart';
 import '../mocks/chat_mocks.dart';
+import '../widgets/platform_alert.dart';
 
 class ChatComponent extends StatefulWidget {
   const ChatComponent({Key? key}) : super(key: key);
@@ -45,11 +48,10 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
     } catch (e) {
       print('Error cargando chats: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cargar los chats: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+        PlatformAlert.showNotification(
+          context: context,
+          message: 'Error al cargar los chats: $e',
+          isError: true,
         );
       }
     } finally {

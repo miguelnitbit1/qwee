@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'dart:io' show Platform;
 import 'package:provider/provider.dart';
 import '../models/geocerca_model.dart';
 import '../mocks/geocercas_mocks.dart';
 import '../providers/user_provider.dart';
 import '../services/map_service.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../widgets/platform_button.dart';
+import '../widgets/platform_alert.dart';
 
 class GeocercasScreen extends StatefulWidget {
   const GeocercasScreen({super.key});
@@ -42,7 +46,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
       try {
         // Verificar si está permanentemente denegado
         final hasLocationPermission = userProvider.hasLocationPermission;
-        print('asdasd: ${hasLocationPermission}');
+        print('Verificando permisos: ${hasLocationPermission}');
         if (!hasLocationPermission) {
           print('Solicitando permiso desde la pantalla GeocercasScreen');
           final status = await Permission.location.request();
@@ -66,13 +70,78 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
     final theme = Theme.of(context);
 
     if (userProvider.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return Platform.isIOS
+          ? const CupertinoPageScaffold(
+              child: Center(child: CupertinoActivityIndicator()),
+            )
+          : const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
     }
 
     List<Geocerca> geocercas = getMockGeocercas();
 
+    return Platform.isIOS
+        ? _buildCupertinoLayout(userProvider, geocercas)
+        : _buildMaterialLayout(userProvider, theme, geocercas);
+  }
+  
+  Widget _buildCupertinoLayout(UserProvider userProvider, List<Geocerca> geocercas) {
+    final hasPosition = userProvider.userPosition != null;
+    final isPermanentlyDenied = userProvider.locationPermissionStatus?.isPermanentlyDenied ?? false;
+    
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Geocercas'),
+        backgroundColor: CupertinoColors.systemBlue,
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Header con gradiente
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    CupertinoColors.systemBlue,
+                    CupertinoColors.systemBlue.withOpacity(0.7),
+                  ],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Explora zonas cercanas a tu ubicación',
+                    style: const TextStyle(
+                      color: CupertinoColors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Contenido principal
+            Expanded(
+              child: !hasPosition
+                  ? _buildPermissionRequiredContent(userProvider, isPermanentlyDenied)
+                  : _buildGeocercasList(userProvider, geocercas),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildMaterialLayout(UserProvider userProvider, ThemeData theme, List<Geocerca> geocercas) {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -103,9 +172,6 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 16),
-                      // Indicador de estado de ubicación
-                      // _buildLocationStatusIndicator(userProvider, theme),
                       const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -148,6 +214,314 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
         ],
       ),
     );
+  }
+  
+  Widget _buildPermissionRequiredContent(UserProvider userProvider, bool isPermanentlyDenied) {
+    final isIOS = Platform.isIOS;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isPermanentlyDenied 
+                  ? (isIOS ? CupertinoIcons.settings : Icons.settings)
+                  : (isIOS ? CupertinoIcons.location_slash : Icons.location_off),
+              size: 64,
+              color: isIOS ? CupertinoColors.systemGrey : Colors.grey,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Se requiere tu ubicación',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isPermanentlyDenied 
+                  ? 'Has denegado permanentemente el acceso a tu ubicación. Por favor, actívalo en la configuración de tu dispositivo.'
+                  : 'Para ver las geocercas cercanas, necesitamos acceder a tu ubicación actual.',
+              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            PlatformButton(
+              text: _requestingPermission
+                  ? 'Solicitando...'
+                  : isPermanentlyDenied 
+                      ? 'Abrir configuración' 
+                      : 'Activar ubicación',
+              isPrimary: true,
+              icon: _requestingPermission
+                  ? (isIOS ? CupertinoIcons.hourglass : Icons.hourglass_empty)
+                  : isPermanentlyDenied 
+                      ? (isIOS ? CupertinoIcons.settings : Icons.settings)
+                      : (isIOS ? CupertinoIcons.location : Icons.location_on),
+              onPressed: _requestingPermission
+                  ? null
+                  : () {
+                      if (isPermanentlyDenied) {
+                        openAppSettings();
+                      } else {
+                        _checkAndRequestPermissionIfNeeded();
+                      }
+                    },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildGeocercasList(UserProvider userProvider, List<Geocerca> geocercas) {
+    final position = userProvider.userPosition!;
+    final isIOS = Platform.isIOS;
+    
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: geocercas.length,
+      itemBuilder: (context, index) {
+        final geocerca = geocercas[index];
+        final distance = geocerca.distanceTo(
+          position.latitude, 
+          position.longitude
+        ) / 1000; // Convertir a kilómetros
+        
+        if (isIOS) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: CupertinoColors.systemGrey5,
+                width: 0.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: CupertinoColors.systemGrey6,
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => _showGeocercaOptions(context, geocerca, userProvider),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            geocerca.name,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: CupertinoColors.label,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Distancia: ${distance.toStringAsFixed(2)} km',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: CupertinoColors.secondaryLabel,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      CupertinoIcons.location,
+                      color: CupertinoColors.activeBlue,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        } else {
+          return Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
+              title: Text(
+                geocerca.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              subtitle: Text(
+                'Distancia: ${distance.toStringAsFixed(2)} km',
+                style: const TextStyle(fontSize: 14),
+              ),
+              trailing: const Icon(
+                Icons.location_on,
+                color: Colors.blue,
+              ),
+              onTap: () => _showGeocercaOptions(context, geocerca, userProvider),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  void _showGeocercaOptions(BuildContext context, Geocerca geocerca, UserProvider userProvider) {
+    if (Platform.isIOS) {
+      showCupertinoModalPopup(
+        context: context,
+        builder: (context) => CupertinoActionSheet(
+          title: Text(geocerca.name),
+          actions: [
+            CupertinoActionSheetAction(
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(CupertinoIcons.map, color: CupertinoColors.activeBlue),
+                  SizedBox(width: 10),
+                  Text('Abrir en mapa'),
+                ],
+              ),
+              onPressed: () async {
+                Navigator.pop(context);
+                try {
+                  await MapService.openMapWithGeocerca(
+                    geocerca,
+                    currentPosition: userProvider.userPosition,
+                  );
+                } catch (e) {
+                  if (context.mounted) {
+                    PlatformAlert.showNotification(
+                      context: context,
+                      message: 'No se pudo abrir el mapa: $e',
+                      isError: true,
+                    );
+                  }
+                }
+              },
+            ),
+            CupertinoActionSheetAction(
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(CupertinoIcons.info, color: CupertinoColors.activeBlue),
+                  SizedBox(width: 10),
+                  Text('Ver detalles'),
+                ],
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                // Aquí podrías navegar a una pantalla de detalles de la geocerca
+              },
+            ),
+            CupertinoActionSheetAction(
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(CupertinoIcons.share, color: CupertinoColors.activeBlue),
+                  SizedBox(width: 10),
+                  Text('Compartir ubicación'),
+                ],
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                // Implementar funcionalidad para compartir
+              },
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Cancelar'),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                margin: const EdgeInsets.only(bottom: 20),
+              ),
+              Text(
+                geocerca.name,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ListTile(
+                leading: Icon(Icons.map, color: Theme.of(context).colorScheme.primary),
+                title: const Text('Abrir en mapa'),
+                onTap: () async {
+                  Navigator.pop(context); // Cerrar el modal
+                  try {
+                    await MapService.openMapWithGeocerca(
+                      geocerca,
+                      currentPosition: userProvider.userPosition,
+                    );
+                  } catch (e) {
+                    if (context.mounted) {
+                      PlatformAlert.showNotification(
+                        context: context,
+                        message: 'No se pudo abrir el mapa: $e',
+                        isError: true,
+                      );
+                    }
+                  }
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
+                title: const Text('Ver detalles'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Aquí podrías navegar a una pantalla de detalles de la geocerca
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.share, color: Theme.of(context).colorScheme.primary),
+                title: const Text('Compartir ubicación'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Implementar funcionalidad para compartir
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildLocationStatusIndicator(UserProvider userProvider, ThemeData theme) {
@@ -245,7 +619,18 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton.icon(
+                PlatformButton(
+                  text: _requestingPermission
+                      ? 'Solicitando...'
+                      : isPermanentlyDenied 
+                          ? 'Abrir configuración' 
+                          : 'Activar ubicación',
+                  isPrimary: true,
+                  icon: _requestingPermission
+                      ? Icons.hourglass_empty
+                      : isPermanentlyDenied 
+                          ? Icons.settings 
+                          : Icons.location_on,
                   onPressed: _requestingPermission
                       ? null
                       : () {
@@ -255,21 +640,6 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
                             _checkAndRequestPermissionIfNeeded();
                           }
                         },
-                  icon: Icon(_requestingPermission
-                      ? Icons.hourglass_empty
-                      : isPermanentlyDenied 
-                          ? Icons.settings 
-                          : Icons.location_on),
-                  label: Text(_requestingPermission
-                      ? 'Solicitando...'
-                      : isPermanentlyDenied 
-                          ? 'Abrir configuración' 
-                          : 'Activar ubicación'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary,
-                    foregroundColor: theme.colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
                 ),
               ],
             ),
@@ -310,74 +680,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
                 Icons.location_on,
                 color: theme.colorScheme.primary,
               ),
-              onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                  ),
-                  builder: (context) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 50,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          margin: const EdgeInsets.only(bottom: 20),
-                        ),
-                        Text(
-                          geocerca.name,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        ListTile(
-                          leading: Icon(Icons.map, color: theme.colorScheme.primary),
-                          title: const Text('Abrir en mapa'),
-                          onTap: () async {
-                            Navigator.pop(context); // Cerrar el modal
-                            try {
-                              await MapService.openMapWithGeocerca(
-                                geocerca,
-                                currentPosition: userProvider.userPosition,
-                              );
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('No se pudo abrir el mapa: $e'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                        ListTile(
-                          leading: Icon(Icons.info_outline, color: theme.colorScheme.primary),
-                          title: const Text('Ver detalles'),
-                          onTap: () {
-                            Navigator.pop(context);
-                            // Aquí podrías navegar a una pantalla de detalles de la geocerca
-                          },
-                        ),
-                        ListTile(
-                          leading: Icon(Icons.share, color: theme.colorScheme.primary),
-                          title: const Text('Compartir ubicación'),
-                          onTap: () {
-                            Navigator.pop(context);
-                            // Implementar funcionalidad para compartir
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+              onTap: () => _showGeocercaOptions(context, geocerca, userProvider),
             ),
           );
         },
