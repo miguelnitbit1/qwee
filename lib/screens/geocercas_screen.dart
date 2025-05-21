@@ -10,6 +10,7 @@ import '../widgets/platform_button.dart';
 import '../widgets/platform_alert.dart';
 import '../widgets/platform_modal.dart';
 import '../widgets/platform_scaffold.dart';
+import '../utils/adaptive_colors.dart';
 
 class GeocercasScreen extends StatefulWidget {
   const GeocercasScreen({super.key});
@@ -44,6 +45,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
+    final colors = context.colors;
 
     if (userProvider.isLoading) {
       return Platform.isIOS
@@ -62,7 +64,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
     return PlatformScaffold(
       title: 'Geocercas',
       hasGradientHeader: false,
-      gradientColor: Platform.isIOS ? CupertinoColors.systemBlue : null,
+      gradientColor: colors.primary,
       gradientSubtitle: 'Explora zonas cercanas a tu ubicación',
       body: hasPosition
           ? _buildGeocercasList(userProvider, geocercas)
@@ -73,6 +75,8 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
   // Widget para solicitar permisos de ubicación
   Widget _buildPermissionRequiredContent(UserProvider userProvider, bool isPermanentlyDenied) {
     final isIOS = Platform.isIOS;
+    final colors = context.colors;
+    
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -84,7 +88,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
                   ? (isIOS ? CupertinoIcons.settings : Icons.settings)
                   : (isIOS ? CupertinoIcons.location_slash : Icons.location_off),
               size: 64,
-              color: isIOS ? CupertinoColors.systemGrey : Colors.grey,
+              color: colors.textSecondary,
             ),
             const SizedBox(height: 16),
             Text(
@@ -92,6 +96,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
+                color: colors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -100,7 +105,10 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
               isPermanentlyDenied 
                   ? 'Has denegado permanentemente el acceso a tu ubicación. Por favor, actívalo en la configuración de tu dispositivo.'
                   : 'Para ver las geocercas cercanas, necesitamos acceder a tu ubicación actual.',
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(
+                fontSize: 16,
+                color: colors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -135,7 +143,6 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
   // Widget para mostrar la lista de geocercas
   Widget _buildGeocercasList(UserProvider userProvider, List<Geocerca> geocercas) {
     final position = userProvider.userPosition!;
-    final isIOS = Platform.isIOS;
     
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -155,20 +162,21 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
   // Widget para cada elemento de geocerca
   Widget _buildGeocercaItem(BuildContext context, Geocerca geocerca, double distance, UserProvider userProvider) {
     final isIOS = Platform.isIOS;
+    final colors = context.colors;
     
     if (isIOS) {
       return Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemBackground,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: CupertinoColors.systemGrey5,
+            color: colors.cardBorder,
             width: 0.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: CupertinoColors.systemGrey6,
+              color: colors.isDark ? Colors.black12 : Colors.black.withOpacity(0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -187,26 +195,26 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
                     children: [
                       Text(
                         geocerca.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: CupertinoColors.label,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Distancia: ${distance.toStringAsFixed(2)} km',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          color: CupertinoColors.secondaryLabel,
+                          color: colors.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   CupertinoIcons.location,
-                  color: CupertinoColors.activeBlue,
+                  color: colors.primary,
                 ),
               ],
             ),
@@ -216,6 +224,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
     } else {
       return Card(
         elevation: 1,
+        color: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -224,18 +233,22 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
           contentPadding: const EdgeInsets.all(16),
           title: Text(
             geocerca.name,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 18,
+              color: colors.textPrimary,
             ),
           ),
           subtitle: Text(
             'Distancia: ${distance.toStringAsFixed(2)} km',
-            style: const TextStyle(fontSize: 14),
+            style: TextStyle(
+              fontSize: 14,
+              color: colors.textSecondary,
+            ),
           ),
-          trailing: const Icon(
+          trailing: Icon(
             Icons.location_on,
-            color: Colors.blue,
+            color: colors.primary,
           ),
           onTap: () => _showGeocercaOptions(context, geocerca, userProvider),
         ),
@@ -245,6 +258,8 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
 
   // Dialogo de opciones para una geocerca
   void _showGeocercaOptions(BuildContext context, Geocerca geocerca, UserProvider userProvider) {
+    final colors = context.colors;
+    
     final List<ModalAction> actions = [
       ModalAction(
         title: 'Abrir en mapa',

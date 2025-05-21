@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
+import '../utils/adaptive_colors.dart';
 
 /// Widget que implementa una barra de pestañas adaptada a la plataforma
 class PlatformTabs extends StatefulWidget {
@@ -97,7 +98,8 @@ class _PlatformTabsState extends State<PlatformTabs> with SingleTickerProviderSt
   
   /// Construye pestañas para iOS usando CupertinoSegmentedControl
   Widget _buildCupertinoTabs() {
-    final primaryColor = CupertinoTheme.of(context).primaryColor;
+    // Usamos la extensión de contexto para acceder a los colores adaptativos
+    final colors = context.colors;
     
     // Crear mapa para el segmented control
     final Map<int, Widget> segments = {};
@@ -108,7 +110,10 @@ class _PlatformTabsState extends State<PlatformTabs> with SingleTickerProviderSt
           widget.tabs[i],
           style: TextStyle(
             fontSize: 14,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
+            color: i == _currentIndex 
+                ? colors.onPrimary
+                : colors.textSecondary,
           ),
         ),
       );
@@ -118,13 +123,17 @@ class _PlatformTabsState extends State<PlatformTabs> with SingleTickerProviderSt
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: CupertinoSegmentedControl<int>(
-            children: segments,
-            groupValue: _currentIndex,
-            onValueChanged: _onCupertinoTabChanged,
-            selectedColor: primaryColor,
-            unselectedColor: CupertinoColors.white,
-            borderColor: primaryColor,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CupertinoSegmentedControl<int>(
+              children: segments,
+              groupValue: _currentIndex,
+              onValueChanged: _onCupertinoTabChanged,
+              selectedColor: colors.primary,
+              unselectedColor: colors.cardBackground,
+              borderColor: colors.isDark ? Colors.transparent : colors.primary.withOpacity(0.5),
+              padding: const EdgeInsets.all(4),
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -137,16 +146,41 @@ class _PlatformTabsState extends State<PlatformTabs> with SingleTickerProviderSt
   
   /// Construye pestañas para Android usando TabBar
   Widget _buildMaterialTabs() {
-    final theme = Theme.of(context);
+    // Usamos la extensión de contexto para acceder a los colores adaptativos
+    final colors = context.colors;
     
     return Column(
       children: [
-        TabBar(
-          controller: _tabController,
-          tabs: widget.tabs.map((title) => Tab(text: title)).toList(),
-          labelColor: theme.colorScheme.primary,
-          indicatorColor: theme.colorScheme.primary,
-          unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: colors.cardBackground,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: TabBar(
+            controller: _tabController,
+            tabs: widget.tabs.map((title) => 
+              Tab(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            ).toList(),
+            labelColor: colors.onPrimary,
+            unselectedLabelColor: colors.textSecondary,
+            indicator: BoxDecoration(
+              color: colors.primary,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            padding: const EdgeInsets.all(4),
+            splashBorderRadius: BorderRadius.circular(8),
+          ),
         ),
         Expanded(
           child: TabBarView(

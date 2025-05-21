@@ -13,6 +13,7 @@ import '../widgets/platform_button.dart';
 import '../widgets/platform_text_field.dart';
 import '../widgets/platform_alert.dart';
 import '../widgets/platform_scaffold.dart';
+import '../utils/adaptive_colors.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -211,17 +212,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   
   // Widget central con el contenido común para ambas plataformas
   Widget _buildProfileContent(UserProvider userProvider, ThemeProvider themeProvider) {
+    // Usamos la extensión de contexto para acceder a los colores adaptativos
+    final colors = context.colors;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Imagen de perfil
         Center(
-          child: _buildProfileImage(userProvider),
+          child: _buildProfileImage(userProvider, colors),
         ),
         const SizedBox(height: 24),
         
         // Información personal
-        _buildSectionTitle('Información Personal'),
+        _buildSectionTitle('Información Personal', colors),
         const SizedBox(height: 16),
         
         // Campos de texto
@@ -263,18 +267,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 32),
         
         // Información de contacto
-        _buildSectionTitle('Información de Contacto'),
+        _buildSectionTitle('Información de Contacto', colors),
         const SizedBox(height: 16),
         
-        _buildContactInfo(userProvider),
+        _buildContactInfo(userProvider, colors),
         
         const SizedBox(height: 32),
         
         // Preferencias
-        _buildSectionTitle('Preferencias'),
+        _buildSectionTitle('Preferencias', colors),
         const SizedBox(height: 16),
         
-        _buildPreferences(themeProvider),
+        _buildPreferences(themeProvider, colors),
         
         const SizedBox(height: 32),
         
@@ -285,25 +289,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
   
   // Widget para el título de sección
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, AdaptiveColors colors) {
     return Text(
       title,
       style: TextStyle(
         fontSize: 20,
         fontWeight: FontWeight.bold,
+        color: colors.textPrimary,
       ),
     );
   }
   
   // Widget para la imagen de perfil
-  Widget _buildProfileImage(UserProvider userProvider) {
+  Widget _buildProfileImage(UserProvider userProvider, AdaptiveColors colors) {
     final isCupertino = Platform.isIOS;
-    final primaryColor = isCupertino 
-        ? CupertinoTheme.of(context).primaryColor 
-        : Theme.of(context).colorScheme.secondary;
-    final onPrimaryColor = isCupertino 
-        ? CupertinoColors.white 
-        : Theme.of(context).colorScheme.onSecondary;
     
     return Stack(
       children: [
@@ -313,9 +312,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: isCupertino
-                    ? CupertinoColors.systemGrey3
-                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+                color: colors.cardBorder,
                 width: 2,
               ),
             ),
@@ -326,7 +323,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   : userProvider.userData?['profileImageUrl'] != null
                       ? NetworkImage(userProvider.userData?['profileImageUrl']!)
                       : null as ImageProvider?,
-              backgroundColor: primaryColor,
+              backgroundColor: colors.secondary,
               child: _imageFile == null && userProvider.userData?['profileImageUrl'] == null
                   ? Text(
                       userProvider.userData?['firstName']?.isNotEmpty == true
@@ -335,7 +332,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: onPrimaryColor,
+                        color: colors.onSecondary,
                       ),
                     )
                   : null,
@@ -347,7 +344,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           bottom: 0,
           child: Container(
             decoration: BoxDecoration(
-              color: primaryColor,
+              color: colors.primary,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
@@ -362,7 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: EdgeInsets.zero,
                     child: Icon(
                       CupertinoIcons.camera,
-                      color: onPrimaryColor,
+                      color: colors.onPrimary,
                       size: 20,
                     ),
                     onPressed: _pickImage,
@@ -370,7 +367,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : IconButton(
                     icon: Icon(
                       Icons.camera_alt,
-                      color: onPrimaryColor,
+                      color: colors.onPrimary,
                       size: 20,
                     ),
                     onPressed: _pickImage,
@@ -382,15 +379,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
   
   // Widget para la información de contacto
-  Widget _buildContactInfo(UserProvider userProvider) {
+  Widget _buildContactInfo(UserProvider userProvider, AdaptiveColors colors) {
     if (Platform.isIOS) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemGrey6,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: CupertinoColors.systemGrey4,
+            color: colors.cardBorder,
             width: 0.5,
           ),
         ),
@@ -400,18 +397,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Platform.isIOS ? CupertinoIcons.mail : Icons.email_outlined,
               'Correo electrónico',
               userProvider.userData?['email'] ?? 'No disponible',
+              colors,
             ),
-            const Divider(),
+            Divider(color: colors.divider),
             _buildInfoRow(
               Platform.isIOS ? CupertinoIcons.phone : Icons.phone_outlined,
               'Teléfono',
               userProvider.userData?['phone'] ?? 'No disponible',
+              colors,
             ),
           ],
         ),
       );
     } else {
       return Card(
+        color: colors.cardBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: colors.cardBorder,
+            width: 0.5,
+          ),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -420,12 +427,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Icons.email_outlined,
                 'Correo electrónico',
                 userProvider.userData?['email'] ?? 'No disponible',
+                colors,
               ),
-              const Divider(),
+              Divider(color: colors.divider),
               _buildInfoRow(
                 Icons.phone_outlined,
                 'Teléfono',
                 userProvider.userData?['phone'] ?? 'No disponible',
+                colors,
               ),
             ],
           ),
@@ -435,17 +444,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
   
   // Widget para las preferencias
-  Widget _buildPreferences(ThemeProvider themeProvider) {
+  Widget _buildPreferences(ThemeProvider themeProvider, AdaptiveColors colors) {
     final isCupertino = Platform.isIOS;
     
     if (isCupertino) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemGrey6,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: CupertinoColors.systemGrey4,
+            color: colors.cardBorder,
             width: 0.5,
           ),
         ),
@@ -455,27 +464,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
               themeProvider.isDarkMode
                   ? CupertinoIcons.moon_fill
                   : CupertinoIcons.sun_max_fill,
-              color: CupertinoTheme.of(context).primaryColor,
+              color: colors.icon,
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Modo Oscuro',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
+                      color: colors.textPrimary,
                     ),
                   ),
                   Text(
                     themeProvider.isDarkMode
                         ? 'Cambiar a modo claro'
                         : 'Cambiar a modo oscuro',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: CupertinoColors.systemGrey,
+                      color: colors.textSecondary,
                     ),
                   ),
                 ],
@@ -488,12 +498,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   value ? ThemeMode.dark : ThemeMode.light,
                 );
               },
+              activeColor: colors.primary,
             ),
           ],
         ),
       );
     } else {
       return Card(
+        color: colors.cardBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: colors.cardBorder,
+            width: 0.5,
+          ),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -503,17 +522,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   themeProvider.isDarkMode
                       ? Icons.dark_mode
                       : Icons.light_mode,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: colors.icon,
                 ),
                 title: Text(
                   'Modo Oscuro',
-                  style: Theme.of(context).textTheme.bodyLarge,
+                  style: TextStyle(color: colors.textPrimary),
                 ),
                 subtitle: Text(
                   themeProvider.isDarkMode
                       ? 'Cambiar a modo claro'
                       : 'Cambiar a modo oscuro',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: TextStyle(color: colors.textSecondary),
                 ),
                 trailing: Switch(
                   value: themeProvider.isDarkMode,
@@ -522,6 +541,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       value ? ThemeMode.dark : ThemeMode.light,
                     );
                   },
+                  activeColor: colors.primary,
                 ),
               ),
             ],
@@ -553,11 +573,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(IconData icon, String label, String value, AdaptiveColors colors) {
     if (Platform.isIOS) {
       return Row(
         children: [
-          Icon(icon, color: CupertinoTheme.of(context).primaryColor),
+          Icon(icon, color: colors.icon),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -565,16 +585,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: CupertinoColors.systemGrey,
+                    color: colors.textSecondary,
                   ),
                 ),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
+                    color: colors.textPrimary,
                   ),
                 ),
               ],
@@ -584,9 +605,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     } else {
       return ListTile(
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        title: Text(label),
-        subtitle: Text(value),
+        leading: Icon(icon, color: colors.icon),
+        title: Text(label, style: TextStyle(color: colors.textSecondary)),
+        subtitle: Text(value, style: TextStyle(color: colors.textPrimary)),
       );
     }
   }

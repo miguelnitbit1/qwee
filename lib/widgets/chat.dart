@@ -8,6 +8,9 @@ import '../widgets/platform_modal.dart';
 import '../widgets/platform_tabs.dart';
 import '../widgets/platform_text_field.dart';
 import '../widgets/platform_button.dart';
+import '../utils/adaptive_colors.dart';
+
+// Eliminamos la clase AdaptiveColors local ya que usaremos la global
 
 class ChatComponent extends StatefulWidget {
   const ChatComponent({Key? key}) : super(key: key);
@@ -72,8 +75,8 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
 
   void _showChatDetails(BuildContext context, Map<String, dynamic> chatData, ChatUser user) {
     final TextEditingController _messageController = TextEditingController();
-    final theme = Theme.of(context);
     final isIOS = Platform.isIOS;
+    final colors = context.colors;
     
     // Contenido personalizado para el modal
     Widget chatContent = Column(
@@ -98,9 +101,7 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isMe
-                          ? (isIOS ? CupertinoColors.activeBlue : theme.colorScheme.primary)
-                          : (isIOS ? CupertinoColors.systemGrey5 : theme.colorScheme.surfaceVariant),
+                      color: isMe ? colors.messageBubbleMe : colors.messageBubbleOther,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
@@ -120,9 +121,7 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
                           Text(
                             message['text'],
                             style: TextStyle(
-                              color: isMe
-                                  ? (isIOS ? CupertinoColors.white : theme.colorScheme.onPrimary)
-                                  : (isIOS ? CupertinoColors.label : theme.colorScheme.onSurfaceVariant),
+                              color: isMe ? colors.messageTextMe : colors.messageTextOther,
                             ),
                           ),
                         const SizedBox(height: 4),
@@ -130,9 +129,9 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
                           message['time'],
                           style: TextStyle(
                             fontSize: 12,
-                            color: isMe
-                                ? (isIOS ? CupertinoColors.white.withOpacity(0.7) : theme.colorScheme.onPrimary.withOpacity(0.7))
-                                : (isIOS ? CupertinoColors.secondaryLabel : theme.colorScheme.onSurfaceVariant.withOpacity(0.7)),
+                            color: isMe 
+                                ? colors.messageTextMe.withOpacity(0.7) 
+                                : colors.textSecondary,
                           ),
                         ),
                       ],
@@ -189,18 +188,18 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
         context: context,
         builder: (context) => Container(
           height: MediaQuery.of(context).size.height * 0.8,
-          decoration: const BoxDecoration(
-            color: CupertinoColors.systemBackground,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
               // Header personalizado
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: CupertinoColors.activeBlue,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                decoration: BoxDecoration(
+                  color: colors.primary,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 ),
                 child: Row(
                   children: [
@@ -261,7 +260,7 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
         child: Container(
           height: MediaQuery.of(context).size.height * 0.8,
           decoration: BoxDecoration(
-            color: theme.scaffoldBackgroundColor,
+            color: colors.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
@@ -270,14 +269,14 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
+                  color: colors.primary,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 25,
-                      backgroundColor: theme.colorScheme.secondary,
+                      backgroundColor: Theme.of(context).colorScheme.secondary,
                       backgroundImage: NetworkImage(user.imageUrl),
                     ),
                     const SizedBox(width: 16),
@@ -287,23 +286,23 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
                         children: [
                           Text(
                             '${user.firstName} ${user.lastName}',
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              color: theme.colorScheme.onPrimary,
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
                             ),
                           ),
                           Text(
                             user.phone ?? 'Sin teléfono',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onPrimary.withOpacity(0.7),
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withOpacity(0.7),
                             ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.close,
-                        color: theme.colorScheme.onPrimary,
+                        color: Colors.white,
                       ),
                       onPressed: () => Navigator.pop(context),
                     ),
@@ -321,7 +320,8 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
   }
 
   Widget _buildChatList(List<ChatUser> users) {
-    final theme = Theme.of(context);
+    final colors = context.colors;
+    final isIOS = Platform.isIOS;
     
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -334,14 +334,14 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
           background: Container(
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: theme.colorScheme.error,
+              color: colors.error,
               borderRadius: BorderRadius.circular(12),
             ),
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 20),
             child: Icon(
-              Icons.delete_outline,
-              color: theme.colorScheme.onError,
+              isIOS ? CupertinoIcons.delete : Icons.delete_outline,
+              color: colors.onError,
               size: 26,
             ),
           ),
@@ -365,7 +365,7 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
                       onPressed: () => Navigator.of(context).pop(true),
                       child: Text(
                         'Eliminar',
-                        style: TextStyle(color: theme.colorScheme.error),
+                        style: TextStyle(color: colors.error),
                       ),
                     ),
                   ],
@@ -402,21 +402,26 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
           },
           child: Card(
             margin: const EdgeInsets.only(bottom: 16),
+            color: colors.surface,
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: theme.colorScheme.secondary,
+                backgroundColor: colors.primary,
                 backgroundImage: NetworkImage(user.imageUrl),
               ),
               title: Text(
                 '${user.firstName} ${user.lastName}',
-                style: theme.textTheme.bodyLarge,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: colors.textPrimary,
+                ),
               ),
               subtitle: Text(
                 user.lastMessage ?? 'No hay mensajes',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: colors.textSecondary,
                 ),
               ),
               trailing: Column(
@@ -425,21 +430,23 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
                 children: [
                   Text(
                     user.lastMessageTime ?? '',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colors.textSecondary,
                     ),
                   ),
                   if (user.unreadCount > 0)
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary,
+                        color: colors.primary,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
                         user.unreadCount.toString(),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onPrimary,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -466,8 +473,8 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isIOS = Platform.isIOS;
+    final colors = context.colors;
 
     if (_isLoading) {
       return Center(
@@ -510,9 +517,7 @@ class _ChatComponentState extends State<ChatComponent> with SingleTickerProvider
               },
               child: Icon(
                 isIOS ? CupertinoIcons.search : Icons.search,
-                color: isIOS 
-                    ? CupertinoTheme.of(context).primaryColor 
-                    : theme.colorScheme.primary,
+                color: colors.primary,
                 size: 24,
               ),
             ),

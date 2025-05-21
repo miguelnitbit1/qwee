@@ -14,6 +14,7 @@ import 'screens/platform_example_screen.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
 import 'middlewares/auth_middleware.dart';
+import 'utils/adaptive_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
