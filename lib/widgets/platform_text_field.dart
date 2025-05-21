@@ -73,10 +73,35 @@ class PlatformTextField extends StatelessWidget {
     final cupertinoTheme = CupertinoTheme.of(context);
     final isDarkMode = cupertinoTheme.brightness == Brightness.dark;
     
+    // Colores mejorados para iOS
+    final backgroundColor = isDarkMode 
+        ? const Color(0xFF1E1E1E) 
+        : CupertinoColors.white;
+    
+    final borderColor = isDarkMode
+        ? const Color(0xFF3E3E3E)
+        : CupertinoColors.systemGrey5;
+    
+    final textColor = isDarkMode
+        ? CupertinoColors.white
+        : CupertinoColors.black;
+    
+    final placeholderColor = isDarkMode
+        ? CupertinoColors.systemGrey
+        : CupertinoColors.systemGrey;
+    
     return CupertinoTextField(
       controller: controller,
       placeholder: placeholder,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      placeholderStyle: TextStyle(
+        color: placeholderColor,
+        fontSize: 16,
+      ),
+      style: TextStyle(
+        color: textColor,
+        fontSize: 16,
+      ),
       prefix: prefixIcon != null 
           ? Padding(
               padding: const EdgeInsets.only(left: 12),
@@ -102,12 +127,10 @@ class PlatformTextField extends StatelessWidget {
             )
           : null,
       decoration: BoxDecoration(
-        color: isDarkMode 
-            ? const Color(0xFF2C2C2C) 
-            : CupertinoColors.extraLightBackgroundGray,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: CupertinoColors.systemGrey4,
+          color: borderColor,
           width: 0.5,
         ),
       ),

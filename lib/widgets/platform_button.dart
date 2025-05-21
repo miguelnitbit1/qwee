@@ -22,6 +22,9 @@ class PlatformButton extends StatelessWidget {
   /// Padding personalizado
   final EdgeInsetsGeometry? padding;
   
+  /// Si el botón debe ocupar todo el ancho disponible
+  final bool expandWidth;
+  
   /// Constructor
   const PlatformButton({
     super.key,
@@ -31,36 +34,70 @@ class PlatformButton extends StatelessWidget {
     this.isDestructive = false,
     this.icon,
     this.padding,
+    this.expandWidth = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Platform.isIOS
+    Widget button = Platform.isIOS
         ? _buildCupertinoButton(context)
         : _buildMaterialButton(context);
+        
+    // Si expandWidth es true, envolvemos el botón en un SizedBox para que ocupe todo el ancho
+    return expandWidth
+        ? SizedBox(width: double.infinity, child: button)
+        : button;
   }
 
   /// Construye un botón estilo iOS
   Widget _buildCupertinoButton(BuildContext context) {
     // Determinar color según el tipo de botón
     Color? buttonColor;
+    Color textColor = CupertinoTheme.of(context).primaryColor;
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
     
     if (isDestructive) {
       buttonColor = CupertinoColors.systemRed;
+      textColor = CupertinoColors.white;
     } else if (isPrimary) {
       buttonColor = CupertinoTheme.of(context).primaryColor;
+      textColor = CupertinoColors.white;
+    } else {
+      // Para botones no primarios, establecemos un color de fondo suave
+      buttonColor = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF2F2F7);
     }
     
     // Armar widget de texto e icono si es necesario
-    Widget child = Text(text);
+    Widget child = Text(
+      text,
+      style: TextStyle(
+        color: isPrimary || isDestructive 
+            ? CupertinoColors.white 
+            : textColor,
+      ),
+    );
     
     if (icon != null) {
       child = Row(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 20),
+          Icon(
+            icon, 
+            size: 20,
+            color: isPrimary || isDestructive 
+                ? CupertinoColors.white 
+                : textColor,
+          ),
           const SizedBox(width: 8),
-          Text(text),
+          Text(
+            text,
+            style: TextStyle(
+              color: isPrimary || isDestructive 
+                  ? CupertinoColors.white 
+                  : textColor,
+            ),
+          ),
         ],
       );
     }
@@ -124,6 +161,9 @@ class PlatformButton extends StatelessWidget {
         padding: padding != null 
             ? MaterialStateProperty.all<EdgeInsetsGeometry>(padding!) 
             : null,
+        minimumSize: MaterialStateProperty.all<Size>(
+          const Size(88, 48), // Altura mínima
+        ),
       ),
       child: child,
     );

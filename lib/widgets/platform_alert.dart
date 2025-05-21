@@ -2,6 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
 
+/// Clase para representar una acción en una alerta
+class AlertAction {
+  /// Texto de la acción
+  final String text;
+  
+  /// Si la acción es la principal
+  final bool isPrimary;
+  
+  /// Callback cuando se presiona la acción
+  final VoidCallback onPressed;
+  
+  /// Constructor
+  const AlertAction({
+    required this.text,
+    this.isPrimary = false,
+    required this.onPressed,
+  });
+}
+
 /// Clase de utilidad para mostrar alertas y diálogos adaptados a la plataforma
 class PlatformAlert {
   
@@ -10,6 +29,7 @@ class PlatformAlert {
     required BuildContext context,
     required String title,
     required String message,
+    List<AlertAction>? actions,
     String? okText,
   }) async {
     if (Platform.isIOS) {
@@ -18,12 +38,20 @@ class PlatformAlert {
         builder: (context) => CupertinoAlertDialog(
           title: Text(title),
           content: Text(message),
-          actions: [
-            CupertinoDialogAction(
-              child: Text(okText ?? 'OK'),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
+          actions: actions != null && actions.isNotEmpty
+              ? actions.map((action) {
+                  return CupertinoDialogAction(
+                    isDefaultAction: action.isPrimary,
+                    onPressed: action.onPressed,
+                    child: Text(action.text),
+                  );
+                }).toList()
+              : [
+                  CupertinoDialogAction(
+                    child: Text(okText ?? 'OK'),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
         ),
       );
     } else {
@@ -32,12 +60,24 @@ class PlatformAlert {
         builder: (context) => AlertDialog(
           title: Text(title),
           content: Text(message),
-          actions: [
-            TextButton(
-              child: Text(okText ?? 'OK'),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
+          actions: actions != null && actions.isNotEmpty 
+              ? actions.map((action) {
+                  return TextButton(
+                    onPressed: action.onPressed,
+                    style: action.isPrimary 
+                        ? TextButton.styleFrom(
+                            foregroundColor: Theme.of(context).colorScheme.primary,
+                          )
+                        : null,
+                    child: Text(action.text),
+                  );
+                }).toList()
+              : [
+                  TextButton(
+                    child: Text(okText ?? 'OK'),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
         ),
       );
     }

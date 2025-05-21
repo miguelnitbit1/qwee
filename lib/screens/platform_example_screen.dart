@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
-import '../widgets/platform_alert.dart';
 import '../widgets/platform_button.dart';
 import '../widgets/platform_text_field.dart';
+import '../widgets/platform_alert.dart';
+import '../widgets/platform_modal.dart';
+import '../widgets/platform_scaffold.dart';
 
-/// Pantalla de ejemplo que muestra los componentes adaptados a cada plataforma
 class PlatformExampleScreen extends StatefulWidget {
   const PlatformExampleScreen({super.key});
 
@@ -16,396 +17,276 @@ class PlatformExampleScreen extends StatefulWidget {
 class _PlatformExampleScreenState extends State<PlatformExampleScreen> {
   final TextEditingController _textController = TextEditingController();
   bool _obscureText = true;
-  
+
   @override
   void dispose() {
     _textController.dispose();
     super.dispose();
   }
   
+  void _toggleObscureText() {
+    setState(() {
+      _obscureText = !_obscureText;
+    });
+  }
+  
+  void _showSimpleAlert() {
+    PlatformAlert.showAlert(
+      context: context,
+      title: 'Título de alerta',
+      message: 'Este es un mensaje de alerta simple para mostrar información al usuario.',
+      actions: [
+        AlertAction(
+          text: 'Aceptar',
+          isPrimary: true,
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+      ],
+    );
+  }
+  
+  void _showConfirmDialog() async {
+    final bool result = await PlatformAlert.showConfirmDialog(
+      context: context,
+      title: 'Confirmar acción',
+      message: '¿Estás seguro de que deseas realizar esta acción?',
+      confirmText: 'Sí, continuar',
+      cancelText: 'Cancelar',
+    );
+    
+    if (result && mounted) {
+      PlatformAlert.showNotification(
+        context: context,
+        message: 'Acción confirmada',
+        isError: false,
+      );
+    }
+  }
+  
+  void _showActionsModal() {
+    final List<ModalAction> actions = [
+      ModalAction(
+        title: 'Editar',
+        icon: Platform.isIOS ? CupertinoIcons.pencil : Icons.edit,
+        onPressed: () {
+          PlatformAlert.showNotification(
+            context: context,
+            message: 'Acción de editar seleccionada',
+            isError: false,
+          );
+        },
+      ),
+      ModalAction(
+        title: 'Compartir',
+        icon: Platform.isIOS ? CupertinoIcons.share : Icons.share,
+        onPressed: () {
+          PlatformAlert.showNotification(
+            context: context,
+            message: 'Acción de compartir seleccionada',
+            isError: false,
+          );
+        },
+      ),
+      ModalAction(
+        title: 'Eliminar',
+        icon: Platform.isIOS ? CupertinoIcons.delete : Icons.delete,
+        isDestructive: true,
+        onPressed: () {
+          _showConfirmDialog();
+        },
+      ),
+    ];
+    
+    PlatformModal.showActionsModal(
+      context: context,
+      title: 'Acciones disponibles',
+      actions: actions,
+      cancelText: 'Cancelar',
+    );
+  }
+  
+  void _showContentModal() {
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PlatformTextField(
+          controller: _textController,
+          placeholder: 'Ingrese texto aquí',
+          label: 'Texto',
+        ),
+        const SizedBox(height: 16),
+        PlatformButton(
+          text: 'Enviar',
+          isPrimary: true,
+          onPressed: () {
+            Navigator.pop(context);
+            if (_textController.text.isNotEmpty) {
+              PlatformAlert.showNotification(
+                context: context,
+                message: 'Texto enviado: ${_textController.text}',
+                isError: false,
+              );
+            }
+          },
+        ),
+      ],
+    );
+    
+    PlatformModal.showContentModal(
+      context: context,
+      title: 'Modal con contenido personalizado',
+      content: content,
+      cancelText: 'Cerrar',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Platform.isIOS
-        ? _buildCupertinoLayout()
-        : _buildMaterialLayout();
-  }
-  
-  /// Construye el layout para iOS
-  Widget _buildCupertinoLayout() {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Ejemplos de Plataforma'),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ListView(
-            children: [
-              const Text(
-                'Ejemplos de Componentes iOS',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 24),
-              
-              _buildSection('Campos de Texto'),
-              const SizedBox(height: 16),
-              PlatformTextField(
-                controller: _textController,
-                placeholder: 'Nombre de usuario',
-                prefixIcon: CupertinoIcons.person,
-              ),
-              const SizedBox(height: 16),
-              PlatformTextField(
-                placeholder: 'Contraseña',
-                prefixIcon: CupertinoIcons.lock,
-                suffixIcon: _obscureText 
-                    ? CupertinoIcons.eye 
-                    : CupertinoIcons.eye_slash,
-                onSuffixIconPressed: () {
-                  setState(() {
-                    _obscureText = !_obscureText;
-                  });
-                },
-                obscureText: _obscureText,
-              ),
-              
-              const SizedBox(height: 24),
-              _buildSection('Botones'),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: PlatformButton(
-                      text: 'Botón Normal',
-                      onPressed: () {},
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: PlatformButton(
-                      text: 'Botón Primario',
-                      isPrimary: true,
-                      onPressed: () {},
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: PlatformButton(
-                      text: 'Eliminar',
-                      isDestructive: true,
-                      icon: CupertinoIcons.delete,
-                      onPressed: () {},
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 24),
-              _buildSection('Diálogos y Alertas'),
-              const SizedBox(height: 16),
-              
-              Row(
-                children: [
-                  Expanded(
-                    child: PlatformButton(
-                      text: 'Mostrar Alerta',
-                      onPressed: () {
-                        PlatformAlert.showAlert(
-                          context: context,
-                          title: 'Alerta',
-                          message: 'Este es un mensaje de alerta.',
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: PlatformButton(
-                      text: 'Mostrar Confirmación',
-                      isPrimary: true,
-                      onPressed: () async {
-                        final result = await PlatformAlert.showConfirmDialog(
-                          context: context,
-                          title: 'Confirmación',
-                          message: '¿Estás seguro de realizar esta acción?',
-                          confirmText: 'Sí, continuar',
-                          cancelText: 'No, cancelar',
-                        );
-                        
-                        if (context.mounted) {
-                          PlatformAlert.showNotification(
-                            context: context,
-                            message: result 
-                                ? 'Acción confirmada' 
-                                : 'Acción cancelada',
-                            isError: !result,
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: PlatformButton(
-                      text: 'Mostrar Carga',
-                      onPressed: () {
-                        PlatformAlert.showLoadingDialog(
-                          context: context,
-                          future: Future.delayed(
-                            const Duration(seconds: 2), 
-                            () => 'Operación completada'
-                          ),
-                          message: 'Procesando...',
-                        ).then((result) {
-                          if (context.mounted) {
-                            PlatformAlert.showNotification(
-                              context: context,
-                              message: result,
-                            );
-                          }
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: PlatformButton(
-                      text: 'Mostrar Notificación',
-                      isPrimary: true,
-                      onPressed: () {
-                        PlatformAlert.showNotification(
-                          context: context,
-                          message: 'Esta es una notificación de ejemplo',
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
+    return PlatformScaffold(
+      title: 'Ejemplos',
+      hasGradientHeader: true,
+      gradientSubtitle: 'Widgets adaptables para iOS y Android',
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildSection('Botones'),
+          PlatformButton(
+            text: 'Botón primario',
+            isPrimary: true,
+            onPressed: () {
+              PlatformAlert.showNotification(
+                context: context,
+                message: 'Botón primario presionado',
+                isError: false,
+              );
+            },
           ),
-        ),
+          const SizedBox(height: 8),
+          PlatformButton(
+            text: 'Botón secundario',
+            isPrimary: false,
+            onPressed: () {
+              PlatformAlert.showNotification(
+                context: context,
+                message: 'Botón secundario presionado',
+                isError: false,
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          PlatformButton(
+            text: 'Botón con icono',
+            isPrimary: true,
+            icon: Platform.isIOS ? CupertinoIcons.star : Icons.star,
+            onPressed: () {
+              PlatformAlert.showNotification(
+                context: context,
+                message: 'Botón con icono presionado',
+                isError: false,
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          PlatformButton(
+            text: 'Botón destructivo',
+            isDestructive: true,
+            icon: Platform.isIOS ? CupertinoIcons.delete : Icons.delete,
+            onPressed: () {
+              _showConfirmDialog();
+            },
+          ),
+          
+          _buildSection('Campos de texto'),
+          PlatformTextField(
+            controller: _textController,
+            label: 'Campo de texto',
+            placeholder: 'Ingrese texto aquí',
+            prefixIcon: Platform.isIOS ? CupertinoIcons.textformat : Icons.text_fields,
+          ),
+          const SizedBox(height: 16),
+          PlatformTextField(
+            label: 'Campo de contraseña',
+            placeholder: 'Ingrese contraseña',
+            obscureText: _obscureText,
+            prefixIcon: Platform.isIOS ? CupertinoIcons.lock : Icons.lock,
+            suffixIcon: _obscureText 
+                ? (Platform.isIOS ? CupertinoIcons.eye : Icons.visibility) 
+                : (Platform.isIOS ? CupertinoIcons.eye_slash : Icons.visibility_off),
+            onSuffixIconPressed: _toggleObscureText,
+          ),
+          
+          _buildSection('Alertas y diálogos'),
+          PlatformButton(
+            text: 'Mostrar alerta',
+            onPressed: _showSimpleAlert,
+            icon: Platform.isIOS ? CupertinoIcons.info : Icons.info,
+          ),
+          const SizedBox(height: 8),
+          PlatformButton(
+            text: 'Mostrar diálogo de confirmación',
+            onPressed: _showConfirmDialog,
+            icon: Platform.isIOS ? CupertinoIcons.question : Icons.help,
+          ),
+          const SizedBox(height: 8),
+          PlatformButton(
+            text: 'Mostrar notificación',
+            onPressed: () {
+              PlatformAlert.showNotification(
+                context: context,
+                message: 'Esta es una notificación de ejemplo',
+                isError: false,
+              );
+            },
+            icon: Platform.isIOS ? CupertinoIcons.bell : Icons.notifications,
+          ),
+          const SizedBox(height: 8),
+          PlatformButton(
+            text: 'Mostrar error',
+            onPressed: () {
+              PlatformAlert.showNotification(
+                context: context,
+                message: 'Este es un mensaje de error de ejemplo',
+                isError: true,
+              );
+            },
+            icon: Platform.isIOS ? CupertinoIcons.exclamationmark_triangle : Icons.error,
+          ),
+          
+          _buildSection('Modales'),
+          PlatformButton(
+            text: 'Modal con acciones',
+            onPressed: _showActionsModal,
+            icon: Platform.isIOS ? CupertinoIcons.list_bullet : Icons.list,
+          ),
+          const SizedBox(height: 8),
+          PlatformButton(
+            text: 'Modal con contenido personalizado',
+            onPressed: _showContentModal,
+            icon: Platform.isIOS ? CupertinoIcons.doc_text : Icons.article,
+          ),
+        ],
       ),
     );
   }
   
-  /// Construye el layout para Android
-  Widget _buildMaterialLayout() {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ejemplos de Plataforma'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            const Text(
-              'Ejemplos de Componentes Material',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            
-            _buildSection('Campos de Texto'),
-            const SizedBox(height: 16),
-            PlatformTextField(
-              controller: _textController,
-              label: 'Nombre de usuario',
-              placeholder: 'Ingresa tu nombre de usuario',
-              prefixIcon: Icons.person,
-            ),
-            const SizedBox(height: 16),
-            PlatformTextField(
-              label: 'Contraseña',
-              placeholder: 'Ingresa tu contraseña',
-              prefixIcon: Icons.lock,
-              suffixIcon: _obscureText ? Icons.visibility : Icons.visibility_off,
-              onSuffixIconPressed: () {
-                setState(() {
-                  _obscureText = !_obscureText;
-                });
-              },
-              obscureText: _obscureText,
-            ),
-            
-            const SizedBox(height: 24),
-            _buildSection('Botones'),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: PlatformButton(
-                    text: 'Botón Normal',
-                    onPressed: () {},
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: PlatformButton(
-                    text: 'Botón Primario',
-                    isPrimary: true,
-                    onPressed: () {},
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: PlatformButton(
-                    text: 'Eliminar',
-                    isDestructive: true,
-                    icon: Icons.delete,
-                    onPressed: () {},
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 24),
-            _buildSection('Diálogos y Alertas'),
-            const SizedBox(height: 16),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: PlatformButton(
-                    text: 'Mostrar Alerta',
-                    onPressed: () {
-                      PlatformAlert.showAlert(
-                        context: context,
-                        title: 'Alerta',
-                        message: 'Este es un mensaje de alerta.',
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: PlatformButton(
-                    text: 'Mostrar Confirmación',
-                    isPrimary: true,
-                    onPressed: () async {
-                      final result = await PlatformAlert.showConfirmDialog(
-                        context: context,
-                        title: 'Confirmación',
-                        message: '¿Estás seguro de realizar esta acción?',
-                        confirmText: 'Sí, continuar',
-                        cancelText: 'No, cancelar',
-                      );
-                      
-                      if (context.mounted) {
-                        PlatformAlert.showNotification(
-                          context: context,
-                          message: result 
-                              ? 'Acción confirmada' 
-                              : 'Acción cancelada',
-                          isError: !result,
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: PlatformButton(
-                    text: 'Mostrar Carga',
-                    onPressed: () {
-                      PlatformAlert.showLoadingDialog(
-                        context: context,
-                        future: Future.delayed(
-                          const Duration(seconds: 2), 
-                          () => 'Operación completada'
-                        ),
-                        message: 'Procesando...',
-                      ).then((result) {
-                        if (context.mounted) {
-                          PlatformAlert.showNotification(
-                            context: context,
-                            message: result,
-                          );
-                        }
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: PlatformButton(
-                    text: 'Mostrar Notificación',
-                    isPrimary: true,
-                    onPressed: () {
-                      PlatformAlert.showNotification(
-                        context: context,
-                        message: 'Esta es una notificación de ejemplo',
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  /// Construye un título de sección
   Widget _buildSection(String title) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 24),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Platform.isIOS 
+                ? CupertinoColors.label 
+                : Theme.of(context).colorScheme.primary,
           ),
         ),
-        const SizedBox(height: 4),
-        const Divider(),
+        const SizedBox(height: 16),
       ],
     );
   }

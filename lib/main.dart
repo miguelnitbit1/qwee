@@ -10,6 +10,7 @@ import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/platform_example_screen.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
 import 'middlewares/auth_middleware.dart';
@@ -109,47 +110,53 @@ class MyApp extends StatelessWidget {
     
     // Usar Cupertino para iOS, Material para otras plataformas
     if (Platform.isIOS) {
+      final isDark = themeProvider.themeMode == ThemeMode.dark;
+      
       return CupertinoApp(
         title: 'Nitbit',
         theme: CupertinoThemeData(
-          brightness: themeProvider.themeMode == ThemeMode.dark 
-              ? Brightness.dark 
-              : Brightness.light,
+          brightness: isDark ? Brightness.dark : Brightness.light,
           primaryColor: const Color(0xFF1E88E5),
-          barBackgroundColor: themeProvider.themeMode == ThemeMode.dark 
+          barBackgroundColor: isDark 
               ? const Color(0xFF121212) 
               : CupertinoColors.white,
-          scaffoldBackgroundColor: themeProvider.themeMode == ThemeMode.dark 
+          scaffoldBackgroundColor: isDark 
               ? const Color(0xFF121212) 
               : CupertinoColors.white,
           textTheme: CupertinoTextThemeData(
             navLargeTitleTextStyle: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: themeProvider.themeMode == ThemeMode.dark 
-                  ? CupertinoColors.white 
-                  : CupertinoColors.black,
+              color: isDark ? CupertinoColors.white : CupertinoColors.black,
             ),
             navTitleTextStyle: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: themeProvider.themeMode == ThemeMode.dark 
-                  ? CupertinoColors.white 
-                  : CupertinoColors.black,
+              color: isDark ? CupertinoColors.white : CupertinoColors.black,
             ),
             textStyle: TextStyle(
               fontSize: 16,
-              color: themeProvider.themeMode == ThemeMode.dark 
-                  ? CupertinoColors.white 
-                  : CupertinoColors.black,
+              color: isDark ? CupertinoColors.white : CupertinoColors.black,
+            ),
+            actionTextStyle: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1E88E5),
+            ),
+            tabLabelTextStyle: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: isDark ? CupertinoColors.white : CupertinoColors.black,
             ),
           ),
+          primaryContrastingColor: Colors.white,
         ),
         home: const SplashScreen(),
         routes: {
           '/login': (context) => const LoginScreen(),
           '/register': (context) => const RegisterScreen(),
           '/home': (context) => const AuthMiddleware(child: HomeScreen()),
+          '/examples': (context) => const PlatformExampleScreen(),
         },
       );
     } else {
@@ -410,6 +417,7 @@ class MyApp extends StatelessWidget {
           '/login': (context) => const LoginScreen(),
           '/register': (context) => const RegisterScreen(),
           '/home': (context) => const AuthMiddleware(child: HomeScreen()),
+          '/examples': (context) => const PlatformExampleScreen(),
         },
       );
     }
