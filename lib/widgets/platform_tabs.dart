@@ -146,41 +146,16 @@ class _PlatformTabsState extends State<PlatformTabs> with SingleTickerProviderSt
   
   /// Construye pestañas para Android usando TabBar
   Widget _buildMaterialTabs() {
-    // Usamos la extensión de contexto para acceder a los colores adaptativos
-    final colors = context.colors;
+    final theme = Theme.of(context);
     
     return Column(
       children: [
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: colors.cardBackground,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: TabBar(
-            controller: _tabController,
-            tabs: widget.tabs.map((title) => 
-              Tab(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              )
-            ).toList(),
-            labelColor: colors.onPrimary,
-            unselectedLabelColor: colors.textSecondary,
-            indicator: BoxDecoration(
-              color: colors.primary,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            indicatorSize: TabBarIndicatorSize.tab,
-            dividerColor: Colors.transparent,
-            padding: const EdgeInsets.all(4),
-            splashBorderRadius: BorderRadius.circular(8),
-          ),
+        TabBar(
+          controller: _tabController,
+          tabs: widget.tabs.map((title) => Tab(text: title)).toList(),
+          labelColor: theme.colorScheme.primary,
+          indicatorColor: theme.colorScheme.primary,
+          unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
         ),
         Expanded(
           child: TabBarView(
