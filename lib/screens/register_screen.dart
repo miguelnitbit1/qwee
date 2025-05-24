@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/platform_text_field.dart';
+import '../widgets/platform_button.dart';
+import '../widgets/platform_alert.dart';
+import '../widgets/platform_scaffold.dart';
+import '../utils/adaptive_colors.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -46,12 +53,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           if (!mounted) return;
 
           // Mostrar mensaje de éxito
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('¡Bienvenido a Nitbit!'),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
+          PlatformAlert.showNotification(
+            context: context,
+            message: '¡Bienvenido a Nitbit!',
+            isError: false,
           );
 
           // Cerrar sesión y redirigir al login
@@ -68,22 +73,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
           message = 'El correo ya está registrado';
         }
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(message),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
+          PlatformAlert.showNotification(
+            context: context,
+            message: message,
+            isError: true,
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${e.toString()}'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
+          PlatformAlert.showNotification(
+            context: context,
+            message: 'Error: ${e.toString()}',
+            isError: true,
           );
         }
       } finally {
@@ -96,10 +97,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Crear cuenta'),
-      ),
+    final colors = context.colors;
+    final isIOS = Platform.isIOS;
+    
+    return PlatformScaffold(
+      title: '',
+      showBackButton: true,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -111,22 +114,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 20),
                 Text(
                   'Crea tu cuenta',
-                  style: Theme.of(context).textTheme.headlineLarge,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: colors.textPrimary,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Únete a nuestra comunidad',
-                  style: Theme.of(context).textTheme.bodyLarge,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: colors.textSecondary,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
-                TextFormField(
+                PlatformTextField(
                   controller: _firstNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre',
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
+                  label: 'Nombre',
+                  prefixIcon: isIOS ? CupertinoIcons.person : Icons.person_outline,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Por favor ingrese su nombre';
@@ -135,12 +143,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
+                PlatformTextField(
                   controller: _lastNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Apellido',
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
+                  label: 'Apellido',
+                  prefixIcon: isIOS ? CupertinoIcons.person : Icons.person_outline,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Por favor ingrese su apellido';
@@ -149,12 +155,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
+                PlatformTextField(
                   controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Correo electrónico',
-                    prefixIcon: Icon(Icons.email_outlined),
-                  ),
+                  label: 'Correo electrónico',
+                  prefixIcon: isIOS ? CupertinoIcons.mail : Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -167,25 +171,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
+                PlatformTextField(
                   controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                  ),
+                  label: 'Contraseña',
+                  prefixIcon: isIOS ? CupertinoIcons.lock : Icons.lock_outline,
+                  suffixIcon: isIOS ? 
+                      (_obscurePassword ? CupertinoIcons.eye : CupertinoIcons.eye_slash) : 
+                      (_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                   obscureText: _obscurePassword,
+                  onSuffixIconPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Por favor ingrese su contraseña';
@@ -197,12 +195,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
+                PlatformTextField(
                   controller: _phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Número de teléfono',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                  ),
+                  label: 'Número de teléfono',
+                  prefixIcon: isIOS ? CupertinoIcons.phone : Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -212,19 +208,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton(
+                PlatformButton(
+                  text: _isLoading ? 'Procesando...' : 'Registrarse',
+                  isPrimary: true,
                   onPressed: _isLoading ? null : _register,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text('Registrarse'),
                 ),
               ],
             ),

@@ -3,14 +3,16 @@ import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
 import 'package:provider/provider.dart';
 import '../models/geocerca_model.dart';
-import '../mocks/geocercas_mocks.dart';
 import '../providers/user_provider.dart';
+import '../providers/geocerca_provider.dart';
 import '../services/map_service.dart';
 import '../widgets/platform_button.dart';
 import '../widgets/platform_alert.dart';
 import '../widgets/platform_modal.dart';
 import '../widgets/platform_scaffold.dart';
 import '../utils/adaptive_colors.dart';
+import 'geocerca_entry_screen.dart';
+import 'geocerca_users_screen.dart';
 
 class GeocercasScreen extends StatefulWidget {
   const GeocercasScreen({super.key});
@@ -20,6 +22,8 @@ class GeocercasScreen extends StatefulWidget {
 }
 
 class _GeocercasScreenState extends State<GeocercasScreen> {
+  bool _isNavigatingToGeocercaScreen = false;
+
   @override
   void initState() {
     super.initState();
@@ -35,17 +39,68 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
     
     // Si ya tenemos permiso y posición, no hacer nada
     if (userProvider.hasLocationPermission && userProvider.userPosition != null) {
+      _startMonitoring();
       return;
     }
     
     // Solicitar permiso usando el método centralizado
     await userProvider.requestLocationPermission();
+    
+    if (userProvider.hasLocationPermission) {
+      _startMonitoring();
+    }
+  }
+  
+  void _startMonitoring() {
+    // Iniciar el monitoreo de geocercas
+    final geocercaProvider = Provider.of<GeocercaProvider>(context, listen: false);
+    if (!geocercaProvider.isMonitoring) {
+      geocercaProvider.startMonitoring();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
+    final geocercaProvider = Provider.of<GeocercaProvider>(context);
     final colors = context.colors;
+
+    // Verificar si el usuario ha entrado a una geocerca y no estamos ya navegando
+    if (!_isNavigatingToGeocercaScreen && !geocercaProvider.isNavigating) {
+      if (geocercaProvider.currentGeocerca != null && geocercaProvider.currentUser == null) {
+        // Mostrar diálogo de confirmación en lugar de ir directamente a la pantalla de entrada
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          setState(() {
+            _isNavigatingToGeocercaScreen = true;
+          });
+          
+          _showEntryConfirmationDialog(context, geocercaProvider);
+        });
+      } else if (geocercaProvider.currentGeocerca != null && geocercaProvider.currentUser != null) {
+        // Mostrar pantalla de usuarios si ya tiene perfil
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          setState(() {
+            _isNavigatingToGeocercaScreen = true;
+          });
+          geocercaProvider.isNavigating = true;
+          
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const GeocercaUsersScreen(),
+            ),
+          ).then((_) {
+            // Cuando se cierre la pantalla, restablecer la bandera
+            if (mounted) {
+              setState(() {
+                _isNavigatingToGeocercaScreen = false;
+              });
+              geocercaProvider.isNavigating = false;
+            }
+          });
+        });
+      }
+    }
 
     if (userProvider.isLoading) {
       return Platform.isIOS
@@ -57,7 +112,7 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
             );
     }
 
-    List<Geocerca> geocercas = getMockGeocercas();
+    List<Geocerca> geocercas = geocercaProvider.geocercas;
     final hasPosition = userProvider.userPosition != null;
     final isPermanentlyDenied = userProvider.isPermanentlyDenied();
 
@@ -131,6 +186,10 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
                         await userProvider.openLocationSettings();
                       } else {
                         await userProvider.requestLocationPermission();
+                        
+                        if (userProvider.hasLocationPermission) {
+                          _startMonitoring();
+                        }
                       }
                     },
             ),
@@ -282,6 +341,31 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
         },
       ),
       ModalAction(
+        title: 'Simular entrada',
+        icon: Platform.isIOS ? CupertinoIcons.arrow_right_circle : Icons.login,
+        onPressed: () {
+          // Cerrar primero el modal actual
+          Navigator.pop(context);
+          
+          // Usar un Future.delayed para asegurar que el modal se ha cerrado completamente
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (context.mounted) {
+              // Simulamos la entrada a esta geocerca
+              final geocercaProvider = Provider.of<GeocercaProvider>(context, listen: false);
+              geocercaProvider.simulateGeocercaEntry(geocerca);
+              
+              // Navegar directamente a la pantalla de entrada sin mostrar diálogo de confirmación
+              if (mounted) {
+                setState(() {
+                  _isNavigatingToGeocercaScreen = true;
+                });
+                _navigateToEntryScreen(context, geocercaProvider);
+              }
+            }
+          });
+        },
+      ),
+      ModalAction(
         title: 'Ver detalles',
         icon: Platform.isIOS ? CupertinoIcons.info : Icons.info_outline,
         onPressed: () {
@@ -303,5 +387,69 @@ class _GeocercasScreenState extends State<GeocercasScreen> {
       actions: actions,
       cancelText: 'Cancelar',
     );
+  }
+  
+  // Método para mostrar el diálogo de confirmación
+  void _showEntryConfirmationDialog(BuildContext context, GeocercaProvider geocercaProvider) {
+    final currentGeocerca = geocercaProvider.currentGeocerca;
+    
+    if (currentGeocerca == null) {
+      if (mounted) {
+        setState(() {
+          _isNavigatingToGeocercaScreen = false;
+        });
+      }
+      return;
+    }
+    
+    PlatformAlert.showConfirmDialog(
+      context: context,
+      title: 'Geocerca Detectada',
+      message: 'Has entrado en la geocerca "${currentGeocerca.name}".\n\n¿Te gustaría ingresar y conectar con otros usuarios?',
+      confirmText: 'Ingresar',
+      cancelText: 'No, gracias',
+    ).then((confirmed) {
+      // Verificar que el widget siga montado antes de actualizar su estado
+      if (!mounted) return;
+      
+      if (confirmed) {
+        // Si confirma, navegar a la pantalla de entrada
+        _navigateToEntryScreen(context, geocercaProvider);
+      } else {
+        // Si cancela, limpiar estado
+        geocercaProvider.exitCurrentGeocerca();
+        if (mounted) {
+          setState(() {
+            _isNavigatingToGeocercaScreen = false;
+          });
+        }
+      }
+    });
+  }
+  
+  // Método para navegar a la pantalla de entrada
+  void _navigateToEntryScreen(BuildContext context, GeocercaProvider geocercaProvider) {
+    geocercaProvider.isNavigating = true;
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const GeocercaEntryScreen(),
+      ),
+    ).then((_) {
+      // Cuando se cierre la pantalla, restablecer la bandera
+      if (mounted) {
+        setState(() {
+          _isNavigatingToGeocercaScreen = false;
+        });
+        geocercaProvider.isNavigating = false;
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    // No detenemos el monitoreo aquí, ya que queremos que continúe en segundo plano
+    super.dispose();
   }
 }

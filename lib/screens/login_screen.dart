@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/platform_text_field.dart';
+import '../widgets/platform_button.dart';
+import '../widgets/platform_alert.dart';
+import '../utils/adaptive_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,17 +43,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    // Validar el formulario para iOS que no usa Form widget de Material
-    if (Platform.isIOS) {
-      if (_emailController.text.isEmpty || !_emailController.text.contains('@')) {
-        _showIOSErrorDialog('Por favor ingrese un correo válido');
-        return;
-      }
-      if (_passwordController.text.isEmpty || _passwordController.text.length < 6) {
-        _showIOSErrorDialog('La contraseña debe tener al menos 6 caracteres');
-        return;
-      }
-    } else if (!_formKey.currentState!.validate()) {
+    // Validar el formulario
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
@@ -112,257 +106,33 @@ class _LoginScreenState extends State<LoginScreen> {
         message = 'Demasiados intentos fallidos. Por favor, intente más tarde';
       }
       
-      if (Platform.isIOS) {
-        _showIOSErrorDialog(message);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
+      PlatformAlert.showNotification(
+        context: context,
+        message: message,
+        isError: true,
+      );
     } catch (e) {
       print('Error general: $e');
       if (!mounted) return;
       
-      if (Platform.isIOS) {
-        _showIOSErrorDialog('Error al iniciar sesión: $e');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al iniciar sesión: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
+      PlatformAlert.showNotification(
+        context: context,
+        message: 'Error al iniciar sesión: $e',
+        isError: true,
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
-  
-  void _showIOSErrorDialog(String message) {
-    showCupertinoDialog(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Error'),
-        content: Text(message),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('OK'),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
-    if (Platform.isIOS) {
-      return _buildIOSLayout();
-    } else {
-      return _buildMaterialLayout();
-    }
-  }
-  
-  Widget _buildIOSLayout() {
-    final primaryColor = CupertinoTheme.of(context).primaryColor;
-    final brightness = CupertinoTheme.of(context).brightness;
-    final isDarkMode = brightness == Brightness.dark;
-    
-    return CupertinoPageScaffold(
-      backgroundColor: isDarkMode 
-          ? const Color(0xFF121212) 
-          : CupertinoColors.extraLightBackgroundGray,
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 60),
-              // Logo con estilo iOS
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: CupertinoColors.black.withOpacity(0.2),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: CupertinoColors.white,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Image.asset(
-                      'assets/images/nitbit_logo.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 40),
-              // Textos de bienvenida
-              Text(
-                'Bienvenido',
-                style: CupertinoTheme.of(context).textTheme.navLargeTitleTextStyle,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Inicia sesión para continuar',
-                style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-                  color: isDarkMode 
-                      ? CupertinoColors.white.withOpacity(0.8) 
-                      : CupertinoColors.black.withOpacity(0.6),
-                ),
-              ),
-              const SizedBox(height: 50),
-              // Formulario con estilo iOS
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDarkMode 
-                      ? const Color(0xFF1E1E1E) 
-                      : CupertinoColors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: CupertinoColors.black.withOpacity(0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Campos de texto con estilo iOS
-                    CupertinoTextField(
-                      controller: _emailController,
-                      placeholder: 'Correo electrónico',
-                      prefix: const Padding(
-                        padding: EdgeInsets.only(left: 10),
-                        child: Icon(
-                          CupertinoIcons.mail,
-                          color: CupertinoColors.systemBlue,
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: isDarkMode 
-                            ? const Color(0xFF2C2C2C) 
-                            : CupertinoColors.extraLightBackgroundGray,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: CupertinoColors.systemGrey4,
-                          width: 0.5,
-                        ),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 20),
-                    CupertinoTextField(
-                      controller: _passwordController,
-                      placeholder: 'Contraseña',
-                      prefix: const Padding(
-                        padding: EdgeInsets.only(left: 10),
-                        child: Icon(
-                          CupertinoIcons.lock,
-                          color: CupertinoColors.systemBlue,
-                        ),
-                      ),
-                      suffix: CupertinoButton(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: Icon(
-                          _obscurePassword 
-                              ? CupertinoIcons.eye 
-                              : CupertinoIcons.eye_slash,
-                          color: CupertinoColors.systemBlue,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: isDarkMode 
-                            ? const Color(0xFF2C2C2C) 
-                            : CupertinoColors.extraLightBackgroundGray,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: CupertinoColors.systemGrey4,
-                          width: 0.5,
-                        ),
-                      ),
-                      obscureText: _obscurePassword,
-                    ),
-                    const SizedBox(height: 30),
-                    _isLoading
-                        ? const Center(child: CupertinoActivityIndicator())
-                        : CupertinoButton(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            color: primaryColor,
-                            borderRadius: BorderRadius.circular(8),
-                            onPressed: _login,
-                            child: const Text(
-                              'Iniciar Sesión',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '¿No tienes una cuenta?',
-                          style: CupertinoTheme.of(context).textTheme.textStyle,
-                        ),
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          child: Text(
-                            'Regístrate',
-                            style: TextStyle(
-                              color: primaryColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: () {
-                            Navigator.pushReplacementNamed(context, '/register');
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildMaterialLayout() {
-    final theme = Theme.of(context);
+    final colors = context.colors;
+    final isIOS = Platform.isIOS;
     
     return Scaffold(
-      backgroundColor: Colors.transparent,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -371,8 +141,8 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              theme.colorScheme.primary.withOpacity(0.8),
-              theme.colorScheme.primary.withOpacity(0.6),
+              colors.primary,
+              colors.primary.withOpacity(0.7),
             ],
           ),
         ),
@@ -398,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     radius: 50,
                     backgroundColor: Colors.white,
                     child: Padding(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(14),
                       child: Image.asset(
                         'assets/images/nitbit_logo.png',
                         fit: BoxFit.contain,
@@ -410,15 +180,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Textos de bienvenida
                 Text(
                   'Bienvenido',
-                  style: theme.textTheme.headlineLarge?.copyWith(
-                    color: Colors.white,
+                  style: TextStyle(
+                    fontSize: 32,
                     fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Inicia sesión para continuar',
-                  style: theme.textTheme.bodyLarge?.copyWith(
+                  style: TextStyle(
+                    fontSize: 16,
                     color: Colors.white.withOpacity(0.8),
                   ),
                 ),
@@ -427,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: theme.cardTheme.color,
+                    color: colors.cardBackground,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
@@ -442,32 +214,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Campo de email mejorado
-                        TextFormField(
+                        PlatformTextField(
                           controller: _emailController,
-                          decoration: InputDecoration(
-                            labelText: 'Correo electrónico',
-                            prefixIcon: Icon(
-                              Icons.email_outlined,
-                              color: theme.colorScheme.primary,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: theme.colorScheme.primary.withOpacity(0.3),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: theme.colorScheme.primary,
-                                width: 2,
-                              ),
-                            ),
-                          ),
+                          label: 'Correo electrónico',
+                          placeholder: 'Ingrese su correo',
+                          prefixIcon: isIOS ? CupertinoIcons.mail : Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -480,46 +231,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                         const SizedBox(height: 20),
-                        // Campo de contraseña mejorado
-                        TextFormField(
+                        PlatformTextField(
                           controller: _passwordController,
-                          decoration: InputDecoration(
-                            labelText: 'Contraseña',
-                            prefixIcon: Icon(
-                              Icons.lock_outline,
-                              color: theme.colorScheme.primary,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                                color: theme.colorScheme.primary,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: theme.colorScheme.primary.withOpacity(0.3),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: theme.colorScheme.primary,
-                                width: 2,
-                              ),
-                            ),
-                          ),
+                          label: 'Contraseña',
+                          placeholder: 'Ingrese su contraseña',
+                          prefixIcon: isIOS ? CupertinoIcons.lock : Icons.lock_outline,
+                          suffixIcon: isIOS ? 
+                              (_obscurePassword ? CupertinoIcons.eye : CupertinoIcons.eye_slash) : 
+                              (_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                           obscureText: _obscurePassword,
+                          onSuffixIconPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Por favor ingrese su contraseña';
@@ -531,34 +256,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                         const SizedBox(height: 30),
-                        // Botón de login mejorado
-                        ElevatedButton(
+                        PlatformButton(
+                          text: _isLoading ? 'Iniciando sesión...' : 'Iniciar sesión',
+                          isPrimary: true,
                           onPressed: _isLoading ? null : _login,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 2,
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
-                                )
-                              : const Text(
-                                  'Iniciar sesión',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
                         ),
                       ],
                     ),
@@ -567,18 +268,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24.0),
-                  child: TextButton(
+                  child: PlatformButton(
+                    text: '¿No tienes cuenta? Regístrate',
+                    isPrimary: false,
                     onPressed: () {
                       Navigator.pushNamed(context, '/register');
                     },
-                    child: Text(
-                      '¿No tienes cuenta? Regístrate',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    expandWidth: false,
                   ),
                 ),
               ],

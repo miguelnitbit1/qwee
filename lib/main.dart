@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
@@ -13,8 +12,9 @@ import 'screens/home_screen.dart';
 import 'screens/platform_example_screen.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
+import 'providers/geocerca_provider.dart';
+import 'providers/chat_provider.dart';
 import 'middlewares/auth_middleware.dart';
-import 'utils/adaptive_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,18 +30,53 @@ void main() async {
       appleProvider: AppleProvider.debug,
     );
     
+    // Crear instancia de GeocercaProvider para poder acceder a ella desde los listeners del ciclo de vida
+    final geocercaProvider = GeocercaProvider();
+    
+    // Configurar listener para cuando la app se cierra o se suspende
+    final lifecycleObserver = AppLifecycleObserver(geocercaProvider);
+    WidgetsBinding.instance.addObserver(lifecycleObserver);
+    
     runApp(
       MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
           ChangeNotifierProvider(create: (_) => UserProvider()),
+          ChangeNotifierProvider.value(value: geocercaProvider),
+          ChangeNotifierProvider(create: (_) => ChatProvider()),
         ],
-        child: const MyApp(),
+        child: MyApp(lifecycleObserver: lifecycleObserver),
       ),
     );
   } catch (e) {
     print('Error inicializando Firebase: $e');
     runApp(const ErrorApp());
+  }
+}
+
+/// Clase para observar los cambios de estado del ciclo de vida de la aplicación
+class AppLifecycleObserver with WidgetsBindingObserver {
+  final GeocercaProvider geocercaProvider;
+  
+  AppLifecycleObserver(this.geocercaProvider);
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print('App lifecycle state: $state');
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      // La app se está poniendo en segundo plano o cerrando
+      print('Deteniendo monitoreo de geocercas');
+      geocercaProvider.stopMonitoring();
+    } else if (state == AppLifecycleState.resumed) {
+      // La app vuelve a primer plano
+      print('Reiniciando monitoreo de geocercas');
+      geocercaProvider.startMonitoring();
+    } else if (state == AppLifecycleState.detached) {
+      // La app se está cerrando completamente
+      print('App detached - limpiando recursos');
+      geocercaProvider.stopMonitoring();
+      geocercaProvider.exitCurrentGeocerca();
+    }
   }
 }
 
@@ -81,10 +116,29 @@ class ErrorApp extends StatelessWidget {
                     await Firebase.initializeApp(
                       options: DefaultFirebaseOptions.currentPlatform,
                     );
+                    
+                    // Crear instancia de GeocercaProvider para el lifecycleObserver
+                    final geocercaProvider = GeocercaProvider();
+                    final themeProvider = ThemeProvider();
+                    final userProvider = UserProvider();
+                    final lifecycleObserver = AppLifecycleObserver(geocercaProvider);
+                    
+                    // Añadir observer
+                    WidgetsBinding.instance.addObserver(lifecycleObserver);
+                    
                     if (context.mounted) {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (_) => const MyApp()),
+                        MaterialPageRoute(
+                          builder: (_) => MultiProvider(
+                            providers: [
+                              ChangeNotifierProvider.value(value: themeProvider),
+                              ChangeNotifierProvider.value(value: userProvider),
+                              ChangeNotifierProvider.value(value: geocercaProvider),
+                            ],
+                            child: MyApp(lifecycleObserver: lifecycleObserver),
+                          ),
+                        ),
                       );
                     }
                   } catch (e) {
@@ -101,8 +155,22 @@ class ErrorApp extends StatelessWidget {
   }
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MyApp extends StatefulWidget {
+  final AppLifecycleObserver lifecycleObserver;
+  
+  const MyApp({super.key, required this.lifecycleObserver});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void dispose() {
+    // Limpiar el observer cuando se cierre la app
+    WidgetsBinding.instance.removeObserver(widget.lifecycleObserver);
+    super.dispose();
+  }
 
   // This widget is the root of your application.
   @override
@@ -271,11 +339,9 @@ class MyApp extends StatelessWidget {
             secondary: const Color(0xFF03DAC6),
             tertiary: const Color(0xFF3700B3),
             surface: const Color(0xFF1E1E1E),
-            background: const Color(0xFF121212),
-            onBackground: Colors.white,
             onSurface: Colors.white,
             onSurfaceVariant: Colors.grey[300],
-            surfaceVariant: const Color(0xFF2C2C2C),
+            surfaceContainerHighest: const Color(0xFF2C2C2C),
             outline: Colors.grey[700],
             onPrimary: Colors.white,
             error: const Color(0xFFD32F2F),
@@ -313,14 +379,14 @@ class MyApp extends StatelessWidget {
             ),
             floatingLabelStyle: const TextStyle(color: Colors.white),
             labelStyle: TextStyle(color: Colors.grey[400]),
-            prefixIconColor: MaterialStateColor.resolveWith((states) {
-              if (states.contains(MaterialState.focused)) {
+            prefixIconColor: WidgetStateColor.resolveWith((states) {
+              if (states.contains(WidgetState.focused)) {
                 return Colors.white;
               }
               return Colors.grey[400]!;
             }),
-            suffixIconColor: MaterialStateColor.resolveWith((states) {
-              if (states.contains(MaterialState.focused)) {
+            suffixIconColor: WidgetStateColor.resolveWith((states) {
+              if (states.contains(WidgetState.focused)) {
                 return Colors.white;
               }
               return Colors.grey[400]!;

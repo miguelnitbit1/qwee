@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
-import '../models/chat_user.dart';
-import '../mocks/chat_mocks.dart';
+import 'package:provider/provider.dart';
+import '../models/chat.dart';
+import '../models/chat_message.dart';
+import '../providers/chat_provider.dart';
 import '../widgets/platform_alert.dart';
 import '../widgets/platform_modal.dart';
-import '../widgets/platform_tabs.dart';
-import '../widgets/platform_text_field.dart';
-import '../widgets/platform_button.dart';
 import '../utils/adaptive_colors.dart';
+import '../widgets/platform_text_field.dart';
+import '../widgets/platform_tabs.dart';
 
 // Eliminamos la clase AdaptiveColors local ya que usaremos la global
 
 class ChatComponent extends StatefulWidget {
-  const ChatComponent({Key? key}) : super(key: key);
+  const ChatComponent({super.key});
 
   @override
   State<ChatComponent> createState() => _ChatComponentState();
@@ -21,523 +22,556 @@ class ChatComponent extends StatefulWidget {
 
 class _ChatComponentState extends State<ChatComponent> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<ChatUser> permanentUsers = [];
-  final List<ChatUser> temporaryUsers = [];
   final TextEditingController _searchController = TextEditingController();
-  bool _isLoading = false;
+  final TextEditingController _messageController = TextEditingController();
+  final bool _isLoading = false;
   bool _isSearchVisible = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadChats();
-  }
-
-  Future<void> _loadChats() async {
-    setState(() => _isLoading = true);
-    try {
-      // Convertimos los datos mock a objetos ChatUser
-      final permanent = ChatMocks.permanentUsers
-          .map((userData) => ChatUser.fromMap(userData))
-          .toList();
-      
-      final temporary = ChatMocks.temporaryUsers
-          .map((userData) => ChatUser.fromMap(userData))
-          .toList();
-
-      setState(() {
-        permanentUsers.clear();
-        temporaryUsers.clear();
-        permanentUsers.addAll(permanent);
-        temporaryUsers.addAll(temporary);
-      });
-    } catch (e) {
-      print('Error cargando chats: $e');
-      if (mounted) {
-        PlatformAlert.showNotification(
-          context: context,
-          message: 'Error al cargar los chats: $e',
-          isError: true,
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
-    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _messageController.dispose();
     super.dispose();
   }
 
-  void _showChatDetails(BuildContext context, Map<String, dynamic> chatData, ChatUser user) {
-    final TextEditingController _messageController = TextEditingController();
-    final isIOS = Platform.isIOS;
+  // Método para alternar la visibilidad del campo de búsqueda
+  void _toggleSearch() {
+    setState(() {
+      _isSearchVisible = !_isSearchVisible;
+      if (!_isSearchVisible) {
+        _searchController.clear();
+        _searchQuery = '';
+      }
+    });
+  }
+
+  // Método para filtrar los chats por texto de búsqueda
+  List<Chat> _filterChats(List<Chat> chats) {
+    if (_searchQuery.isEmpty) return chats;
+    
+    return chats.where((chat) => 
+      chat.name.toLowerCase().contains(_searchQuery.toLowerCase())
+    ).toList();
+  }
+
+  // Método para mostrar detalles de un chat
+  void _showChatDetails(BuildContext context, Chat chat) {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
     final colors = context.colors;
     
-    // Contenido personalizado para el modal
-    Widget chatContent = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Usuario y foto (header ya está incluido en el modal)
-        Flexible(
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.6,
-            ),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: chatData['messages']?.length ?? 0,
-              itemBuilder: (context, index) {
-                final message = chatData['messages'][index];
-                final isMe = message['isMe'];
-                
-                return Align(
-                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isMe ? colors.messageBubbleMe : colors.messageBubbleOther,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (message['imageUrl'] != null)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.network(
-                              message['imageUrl'],
-                              width: 200,
-                              height: 200,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        if (message['text'] != null)
-                          Text(
-                            message['text'],
-                            style: TextStyle(
-                              color: isMe ? colors.messageTextMe : colors.messageTextOther,
-                            ),
-                          ),
-                        const SizedBox(height: 4),
-                        Text(
-                          message['time'],
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isMe 
-                                ? colors.messageTextMe.withOpacity(0.7) 
-                                : colors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        // Campo de mensaje
-        Container(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              PlatformButton(
-                text: '',
-                icon: isIOS ? CupertinoIcons.paperclip : Icons.attach_file,
-                onPressed: () {
-                  // TODO: Implementar lógica para adjuntar archivos
-                },
-                expandWidth: false,
-              ),
-              Expanded(
-                child: PlatformTextField(
-                  controller: _messageController,
-                  placeholder: 'Escribe un mensaje...',
-                  keyboardType: TextInputType.multiline,
-                ),
-              ),
-              PlatformButton(
-                text: '',
-                icon: isIOS ? CupertinoIcons.arrow_right_circle_fill : Icons.send,
-                isPrimary: true,
-                onPressed: () {
-                  if (_messageController.text.trim().isNotEmpty) {
-                    // TODO: Implementar lógica para enviar el mensaje
-                    print('Mensaje enviado: ${_messageController.text}');
-                    _messageController.clear();
-                  }
-                },
-                expandWidth: false,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+    // Marcar mensajes como leídos
+    chatProvider.markChatAsRead(chat.id);
     
-    // Este es un caso especial donde no usamos PlatformModal directamente
-    // porque necesitamos más personalización
-    if (isIOS) {
-      showCupertinoModalPopup(
-        context: context,
-        builder: (context) => Container(
-          height: MediaQuery.of(context).size.height * 0.8,
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Header personalizado
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colors.primary,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 25,
-                      backgroundColor: CupertinoColors.systemGrey,
-                      backgroundImage: NetworkImage(user.imageUrl),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${user.firstName} ${user.lastName}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: CupertinoColors.white,
-                            ),
-                          ),
-                          Text(
-                            user.phone ?? 'Sin teléfono',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xB3FFFFFF), // CupertinoColors.white con opacity 0.7
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      child: const Icon(
-                        CupertinoIcons.xmark,
-                        color: CupertinoColors.white,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              // Contenido del chat
-              Expanded(child: chatContent),
-            ],
-          ),
-        ),
-      );
-    } else {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Container(
-          height: MediaQuery.of(context).size.height * 0.8,
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-                // Header personalizado
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colors.primary,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                child: Row(
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      useSafeArea: true, // Esto asegura que no tape los elementos de UI del sistema
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom
+              ),
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.9,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 25,
-                      backgroundColor: Theme.of(context).colorScheme.secondary,
-                      backgroundImage: NetworkImage(user.imageUrl),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    // Header con información del usuario
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: colors.cardBorder,
+                            width: 0.5,
+                          ),
+                        ),
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            '${user.firstName} ${user.lastName}',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
+                          // Botón para cerrar
+                          IconButton(
+                            icon: Icon(
+                              Platform.isIOS ? CupertinoIcons.chevron_down : Icons.close,
+                              color: colors.textSecondary,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          
+                          // Avatar del usuario
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundImage: chat.imageUrl != null 
+                                ? NetworkImage(chat.imageUrl!) 
+                                : null,
+                            backgroundColor: colors.primary.withOpacity(0.2),
+                            child: chat.imageUrl == null 
+                                ? Icon(Icons.person, color: colors.primary) 
+                                : null,
+                          ),
+                          
+                          const SizedBox(width: 12),
+                          
+                          // Nombre y estado
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  chat.name,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  chat.isTemporary ? 'Chat temporal de geocerca' : 'Usuario permanente',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: colors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            user.phone ?? 'Sin teléfono',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withOpacity(0.7),
+                          
+                          // Botón de opciones
+                          IconButton(
+                            icon: Icon(
+                              Platform.isIOS ? CupertinoIcons.ellipsis : Icons.more_vert,
+                              color: colors.textSecondary,
                             ),
+                            onPressed: () {
+                              // Mostrar opciones de chat
+                              _showChatOptions(context, chat);
+                            },
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                      ),
-                      onPressed: () => Navigator.pop(context),
+                    
+                    // Lista de mensajes
+                    Expanded(
+                      child: _buildChatMessages(chat),
                     ),
-                  ],
-                ),
-              ),
-                // Contenido del chat
-                Expanded(child: chatContent),
-            ],
-          ),
-        ),
-      ),
-    );
-    }
-  }
-
-  Widget _buildChatList(List<ChatUser> users) {
-    final colors = context.colors;
-    final isIOS = Platform.isIOS;
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: users.length,
-      itemBuilder: (context, index) {
-        final user = users[index];
-        return Dismissible(
-          key: Key(user.imageUrl),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: colors.error,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 20),
-            child: Icon(
-              isIOS ? CupertinoIcons.delete : Icons.delete_outline,
-              color: colors.onError,
-              size: 26,
-            ),
-          ),
-          dismissThresholds: const {
-            DismissDirection.endToStart: 0.5,
-          },
-          movementDuration: const Duration(milliseconds: 200),
-          confirmDismiss: (direction) async {
-            return await showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                return AlertDialog(
-                  title: const Text('Confirmar eliminación'),
-                  content: Text('¿Estás seguro de que quieres eliminar el chat con ${user.firstName}?'),
-                  actions: <Widget>[
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('Cancelar'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child: Text(
-                        'Eliminar',
-                        style: TextStyle(color: colors.error),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-          onDismissed: (direction) {
-            setState(() {
-              if (users == permanentUsers) {
-                permanentUsers.removeAt(index);
-              } else {
-                temporaryUsers.removeAt(index);
-              }
-            });
-            
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Chat con ${user.firstName} eliminado'),
-                action: SnackBarAction(
-                  label: 'Deshacer',
-                  onPressed: () {
-                    setState(() {
-                      if (users == permanentUsers) {
-                        permanentUsers.insert(index, user);
-                      } else {
-                        temporaryUsers.insert(index, user);
-                      }
-                    });
-                  },
-                ),
-              ),
-            );
-          },
-          child: Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            color: colors.surface,
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: colors.primary,
-                backgroundImage: NetworkImage(user.imageUrl),
-              ),
-              title: Text(
-                '${user.firstName} ${user.lastName}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: colors.textPrimary,
-                ),
-              ),
-              subtitle: Text(
-                user.lastMessage ?? 'No hay mensajes',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colors.textSecondary,
-                ),
-              ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    user.lastMessageTime ?? '',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.textSecondary,
-                    ),
-                  ),
-                  if (user.unreadCount > 0)
+                    
+                    // Campo para enviar mensajes
                     Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: colors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        user.unreadCount.toString(),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
+                        border: Border(
+                          top: BorderSide(
+                            color: colors.cardBorder,
+                            width: 0.5,
+                          ),
                         ),
                       ),
+                      child: Row(
+                        children: [
+                          // Botón para adjuntar
+                          IconButton(
+                            icon: Icon(
+                              Platform.isIOS ? CupertinoIcons.photo : Icons.attach_file,
+                              color: colors.primary,
+                            ),
+                            onPressed: () {
+                              // Implementar adjuntar archivos
+                            },
+                          ),
+                          
+                          // Campo de texto
+                          Expanded(
+                            child: PlatformTextField(
+                              controller: _messageController,
+                              placeholder: 'Escribe un mensaje...',
+                              maxLines: 3,
+                            ),
+                          ),
+                          
+                          // Botón para enviar
+                          IconButton(
+                            icon: Icon(
+                              Platform.isIOS ? CupertinoIcons.arrow_right_circle_fill : Icons.send,
+                              color: colors.primary,
+                            ),
+                            onPressed: () {
+                              _sendMessage(chat);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                ],
+                  ],
+                ),
               ),
-              onTap: () => _showChatDetails(context, user.chatData, user),
-            ),
+            );
+          },
+        );
+      },
+    );
+  }
+  
+  // Método para mostrar opciones de chat
+  void _showChatOptions(BuildContext context, Chat chat) {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    
+    final List<ModalAction> actions = [
+      ModalAction(
+        title: 'Ver información',
+        icon: Platform.isIOS ? CupertinoIcons.info : Icons.info_outline,
+        onPressed: () {
+          Navigator.pop(context);
+          // Implementar ver información
+        },
+      ),
+      ModalAction(
+        title: 'Silenciar notificaciones',
+        icon: Platform.isIOS ? CupertinoIcons.bell_slash : Icons.notifications_off,
+        onPressed: () {
+          Navigator.pop(context);
+          // Implementar silenciar
+        },
+      ),
+      ModalAction(
+        title: 'Eliminar chat',
+        icon: Platform.isIOS ? CupertinoIcons.delete : Icons.delete,
+        isDestructive: true,
+        onPressed: () {
+          Navigator.pop(context);
+          _confirmDeleteChat(context, chat, chatProvider);
+        },
+      ),
+    ];
+    
+    PlatformModal.showActionsModal(
+      context: context,
+      title: 'Opciones',
+      actions: actions,
+      cancelText: 'Cancelar',
+    );
+  }
+  
+  // Método para confirmar eliminación de chat
+  void _confirmDeleteChat(BuildContext context, Chat chat, ChatProvider chatProvider) {
+    PlatformAlert.showConfirmDialog(
+      context: context,
+      title: 'Eliminar chat',
+      message: '¿Estás seguro de que quieres eliminar este chat? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+    ).then((confirmed) {
+      if (confirmed) {
+        chatProvider.deleteChat(chat.id);
+        Navigator.pop(context); // Cerrar pantalla de chat
+        
+        PlatformAlert.showNotification(
+          context: context,
+          message: 'Chat eliminado',
+          isError: false,
+        );
+      }
+    });
+  }
+  
+  // Método para enviar un mensaje
+  void _sendMessage(Chat chat) {
+    if (_messageController.text.trim().isEmpty) return;
+    
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    final receiverId = chat.participants.firstWhere((id) => id != 'current_user');
+    
+    chatProvider.sendMessage(
+      chatId: chat.id,
+      receiverId: receiverId,
+      text: _messageController.text.trim(),
+    );
+    
+    _messageController.clear();
+  }
+  
+  // Construir lista de mensajes
+  Widget _buildChatMessages(Chat chat) {
+    final colors = context.colors;
+    final messages = chat.messages;
+    
+    if (messages.isEmpty) {
+      return Center(
+        child: Text(
+          'No hay mensajes',
+          style: TextStyle(
+            color: colors.textSecondary,
+          ),
+        ),
+      );
+    }
+    
+    // Ordenar mensajes por fecha (más antiguos primero)
+    final sortedMessages = List<ChatMessage>.from(messages)
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      itemCount: sortedMessages.length,
+      reverse: false,
+      itemBuilder: (context, index) {
+        final message = sortedMessages[index];
+        final isMe = message.senderId == 'current_user';
+        
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          child: Row(
+            mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!isMe) ...[
+                CircleAvatar(
+                  radius: 16,
+                  backgroundImage: chat.imageUrl != null 
+                      ? NetworkImage(chat.imageUrl!) 
+                      : null,
+                  backgroundColor: colors.primary.withOpacity(0.2),
+                  child: chat.imageUrl == null 
+                      ? Icon(Icons.person, size: 16, color: colors.primary) 
+                      : null,
+                ),
+                const SizedBox(width: 8),
+              ],
+              
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isMe ? colors.primary : colors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: message.imageUrl != null
+                      ? Image.network(
+                          message.imageUrl!,
+                          width: 200,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        )
+                      : Text(
+                          message.text ?? '',
+                          style: TextStyle(
+                            color: isMe ? Colors.white : colors.textPrimary,
+                          ),
+                        ),
+                ),
+              ),
+              
+              if (isMe) const SizedBox(width: 8),
+            ],
           ),
         );
       },
     );
   }
 
-  // Método para filtrar usuarios
-  List<ChatUser> _getFilteredUsers(List<ChatUser> users) {
-    final query = _searchController.text.toLowerCase();
-    if (query.isEmpty) return users;
-    
-    return users.where((user) {
-      final fullName = '${user.firstName} ${user.lastName}'.toLowerCase();
-      return fullName.contains(query);
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isIOS = Platform.isIOS;
+    final chatProvider = Provider.of<ChatProvider>(context);
     final colors = context.colors;
-
-    if (_isLoading) {
+    
+    try {
+      // Obtener chats permanentes y temporales
+      final permanentChats = _filterChats(chatProvider.permanentChats);
+      final temporaryChats = _filterChats(chatProvider.temporaryChats);
+      
+      if (_isLoading) {
+        return Center(
+          child: Platform.isIOS
+              ? const CupertinoActivityIndicator()
+              : const CircularProgressIndicator(),
+        );
+      }
+      
+      return Column(
+        children: [
+          // Barra de búsqueda y botón
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                if (_isSearchVisible)
+                  Expanded(
+                    child: PlatformTextField(
+                      controller: _searchController,
+                      placeholder: 'Buscar chats...',
+                      prefixIcon: Platform.isIOS ? CupertinoIcons.search : Icons.search,
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value;
+                        });
+                      },
+                    ),
+                  )
+                else
+                  const Expanded(child: SizedBox()),
+                
+                IconButton(
+                  icon: Icon(
+                    _isSearchVisible
+                        ? (Platform.isIOS ? CupertinoIcons.xmark_circle : Icons.close)
+                        : (Platform.isIOS ? CupertinoIcons.search : Icons.search),
+                    color: colors.primary,
+                  ),
+                  onPressed: _toggleSearch,
+                ),
+              ],
+            ),
+          ),
+          
+          // Pestañas y contenido
+          Expanded(
+            child: PlatformTabs(
+              tabController: _tabController,
+              tabs: const ['Permanentes', 'Temporales'],
+              children: [
+                // Pestaña de chats permanentes
+                _buildChatList(permanentChats),
+                
+                // Pestaña de chats temporales
+                _buildChatList(temporaryChats),
+              ],
+            ),
+          ),
+        ],
+      );
+    } catch (e) {
+      // Manejo de error al cargar los chats
+      PlatformAlert.showNotification(
+        context: context,
+        message: 'Error al cargar los chats: $e',
+        isError: true,
+      );
+      
       return Center(
-        child: isIOS
-            ? const CupertinoActivityIndicator()
-            : const CircularProgressIndicator(),
+        child: Text(
+          'Error al cargar los chats',
+          style: TextStyle(color: colors.textSecondary),
+        ),
       );
     }
-
-    return Column(
-      children: [
-        // Barra de búsqueda
-        if (_isSearchVisible)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: PlatformTextField(
-              controller: _searchController,
-              placeholder: 'Buscar...',
-              prefixIcon: isIOS ? CupertinoIcons.search : Icons.search,
-              suffixIcon: isIOS ? CupertinoIcons.clear_circled_solid : Icons.close,
-              onSuffixIconPressed: () {
-                setState(() {
-                  _isSearchVisible = false;
-                  _searchController.clear();
-                });
-              },
-              onChanged: (value) => setState(() {}),
-              autofocus: true,
-            ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.only(right: 16.0, top: 8.0, bottom: 8.0),
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isSearchVisible = true;
-                });
-              },
-              child: Icon(
-                isIOS ? CupertinoIcons.search : Icons.search,
-                color: colors.primary,
-                size: 24,
+  }
+  
+  // Construir lista de chats
+  Widget _buildChatList(List<Chat> chats) {
+    final colors = context.colors;
+    
+    if (chats.isEmpty) {
+      return Center(
+        child: Text(
+          'No hay chats',
+          style: TextStyle(color: colors.textSecondary),
+        ),
+      );
+    }
+    
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: chats.length,
+      itemBuilder: (context, index) {
+        final chat = chats[index];
+        return _buildChatItem(chat);
+      },
+    );
+  }
+  
+  // Construir elemento de chat
+  Widget _buildChatItem(Chat chat) {
+    final colors = context.colors;
+    final lastMessage = chat.lastMessage;
+    final unreadCount = chat.unreadCount('current_user');
+    
+    // Obtener fecha relativa del último mensaje
+    String lastActivity = '';
+    if (chat.lastActivity != null) {
+      final now = DateTime.now();
+      final difference = now.difference(chat.lastActivity!);
+      
+      if (difference.inDays > 0) {
+        lastActivity = '${difference.inDays}d';
+      } else if (difference.inHours > 0) {
+        lastActivity = '${difference.inHours}h';
+      } else {
+        lastActivity = '${difference.inMinutes}m';
+      }
+    }
+    
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: CircleAvatar(
+        radius: 24,
+        backgroundImage: chat.imageUrl != null ? NetworkImage(chat.imageUrl!) : null,
+        backgroundColor: colors.primary.withOpacity(0.2),
+        child: chat.imageUrl == null ? Icon(Icons.person, color: colors.primary) : null,
+      ),
+      title: Text(
+        chat.name,
+        style: TextStyle(
+          fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+          color: colors.textPrimary,
+        ),
+      ),
+      subtitle: lastMessage != null
+          ? Text(
+              lastMessage.text ?? 'Imagen',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.textSecondary,
+              ),
+            )
+          : Text(
+              chat.isTemporary ? 'Chat temporal de geocerca' : 'Sin mensajes',
+              style: TextStyle(
+                color: colors.textSecondary,
               ),
             ),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            lastActivity,
+            style: TextStyle(
+              fontSize: 12,
+              color: colors.textSecondary,
+            ),
           ),
-        
-        // Tabs adaptados a la plataforma
-        Expanded(
-          child: PlatformTabs(
-            tabController: _tabController,
-            tabs: const ['Permanentes', 'Temporales'],
-            children: [
-              _buildChatList(_getFilteredUsers(permanentUsers)),
-              _buildChatList(_getFilteredUsers(temporaryUsers)),
-            ],
-            onTabChanged: (index) {
-              // Podemos agregar acciones específicas al cambiar de tab
-            },
-          ),
-        ),
-      ],
+          if (unreadCount > 0)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: colors.primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                unreadCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+        ],
+      ),
+      onTap: () => _showChatDetails(context, chat),
     );
   }
 }
