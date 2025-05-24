@@ -159,9 +159,9 @@ class PlatformButton extends StatelessWidget {
       onPressed: onPressed,
       style: buttonStyle.copyWith(
         padding: padding != null 
-            ? WidgetStateProperty.all<EdgeInsetsGeometry>(padding!) 
+            ? MaterialStateProperty.all<EdgeInsetsGeometry>(padding!) 
             : null,
-        minimumSize: WidgetStateProperty.all<Size>(
+        minimumSize: MaterialStateProperty.all<Size>(
           const Size(88, 48), // Altura mínima
         ),
       ),

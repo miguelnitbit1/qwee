@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -25,7 +27,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   
-  final bool _isLoading = false;
+  bool _isLoading = false;
   File? _imageFile;
 
 
@@ -355,12 +357,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: isCupertino
                 ? CupertinoButton(
                     padding: EdgeInsets.zero,
-                    onPressed: _pickImage,
                     child: Icon(
                       CupertinoIcons.camera,
                       color: colors.onPrimary,
                       size: 20,
                     ),
+                    onPressed: _pickImage,
                   )
                 : IconButton(
                     icon: Icon(
@@ -496,7 +498,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   value ? ThemeMode.dark : ThemeMode.light,
                 );
               },
-              activeTrackColor: colors.primary,
+              activeColor: colors.primary,
             ),
           ],
         ),

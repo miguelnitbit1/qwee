@@ -43,12 +43,6 @@ class PlatformTextField extends StatelessWidget {
   /// Si está en modo autofocus
   final bool autofocus;
   
-  /// Número máximo de líneas del campo
-  final int? maxLines;
-  
-  /// Número máximo de caracteres permitidos
-  final int? maxLength;
-  
   /// Constructor
   const PlatformTextField({
     super.key,
@@ -65,8 +59,6 @@ class PlatformTextField extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.autofocus = false,
-    this.maxLines = 1,
-    this.maxLength,
   });
 
   @override
@@ -98,73 +90,55 @@ class PlatformTextField extends StatelessWidget {
         ? CupertinoColors.systemGrey
         : CupertinoColors.systemGrey;
     
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CupertinoTextField(
-          controller: controller,
-          placeholder: placeholder,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          placeholderStyle: TextStyle(
-            color: placeholderColor,
-            fontSize: 16,
-          ),
-          style: TextStyle(
-            color: textColor,
-            fontSize: 16,
-          ),
-          prefix: prefixIcon != null 
-              ? Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Icon(
-                    prefixIcon,
-                    color: cupertinoTheme.primaryColor,
-                    size: 20,
-                  ),
-                )
-              : null,
-          suffix: suffixIcon != null
-              ? CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: onSuffixIconPressed,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Icon(
-                      suffixIcon,
-                      color: cupertinoTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                )
-              : null,
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: borderColor,
-              width: 0.5,
-            ),
-          ),
-          keyboardType: keyboardType,
-          obscureText: obscureText,
-          onChanged: onChanged,
-          onSubmitted: onSubmitted,
-          autofocus: autofocus,
-          maxLength: maxLength,
-          maxLines: maxLines,
-        ),
-        if (maxLength != null && controller != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 8),
-            child: Text(
-              '${controller!.text.length}/$maxLength',
-              style: TextStyle(
-                color: placeholderColor,
-                fontSize: 12,
+    return CupertinoTextField(
+      controller: controller,
+      placeholder: placeholder,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      placeholderStyle: TextStyle(
+        color: placeholderColor,
+        fontSize: 16,
+      ),
+      style: TextStyle(
+        color: textColor,
+        fontSize: 16,
+      ),
+      prefix: prefixIcon != null 
+          ? Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Icon(
+                prefixIcon,
+                color: cupertinoTheme.primaryColor,
+                size: 20,
               ),
-            ),
-          ),
-      ],
+            )
+          : null,
+      suffix: suffixIcon != null
+          ? CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: onSuffixIconPressed,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Icon(
+                  suffixIcon,
+                  color: cupertinoTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+            )
+          : null,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: borderColor,
+          width: 0.5,
+        ),
+      ),
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      autofocus: autofocus,
     );
   }
 
@@ -176,6 +150,7 @@ class PlatformTextField extends StatelessWidget {
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
+        hintText: placeholder,
         prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
         suffixIcon: suffixIcon != null 
             ? IconButton(
@@ -186,7 +161,6 @@ class PlatformTextField extends StatelessWidget {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        counterText: '',
       ),
       keyboardType: keyboardType,
       obscureText: obscureText,
@@ -202,8 +176,6 @@ class PlatformTextField extends StatelessWidget {
       onChanged: onChanged,
       onFieldSubmitted: onSubmitted,
       autofocus: autofocus,
-      maxLength: maxLength,
-      maxLines: maxLines,
     );
   }
 } 

@@ -148,7 +148,7 @@ class AdaptiveColors {
     if (Platform.isIOS) {
       return isDark ? const Color(0xFF2C2C2C) : CupertinoColors.systemGrey5;
     } else {
-      return Theme.of(context).colorScheme.surfaceContainerHighest;
+      return Theme.of(context).colorScheme.surfaceVariant;
     }
   }
   
@@ -172,15 +172,6 @@ class AdaptiveColors {
       return isDark ? const Color(0xFF2C2C2C) : CupertinoColors.systemGrey4;
     } else {
       return isDark ? Colors.grey[800]! : Colors.grey[300]!;
-    }
-  }
-  
-  /// Color para variante de superficie (fondo alternativo)
-  Color get surfaceVariant {
-    if (Platform.isIOS) {
-      return isDark ? const Color(0xFF2C2C2C) : CupertinoColors.systemGrey6;
-    } else {
-      return isDark ? const Color(0xFF2C2C2C) : Colors.grey[100]!;
     }
   }
 }

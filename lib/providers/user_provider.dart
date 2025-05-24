@@ -7,6 +7,7 @@ import 'dart:async';
 import '../models/notification_message.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/foundation.dart';
 
 class UserProvider with ChangeNotifier {
   User? _firebaseUser;

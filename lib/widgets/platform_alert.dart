@@ -124,11 +124,11 @@ class PlatformAlert {
               onPressed: () => Navigator.pop(context, false),
             ),
             TextButton(
+              child: Text(confirmText ?? 'Confirmar'),
               style: TextButton.styleFrom(
                 foregroundColor: Theme.of(context).colorScheme.primary,
               ),
               onPressed: () => Navigator.pop(context, true),
-              child: Text(confirmText ?? 'Confirmar'),
             ),
           ],
         ),
